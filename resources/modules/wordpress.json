@@ -1,0 +1,4 @@
+{
+  "id":"wordpress","name":"WordPress","version":"1.0.0","category":"application","description":"WordPress CMS with WP-CLI tooling.","icon":"globe","dependencies":[],"conflicts":["laravel","drupal"],"defaults":{"docroot":""},
+  "settings":[{"id":"wp_debug","label":"WP_DEBUG","type":"boolean","default":true},{"id":"multisite","label":"Enable Multisite","type":"boolean","default":false}]
+}

@@ -1,0 +1,4 @@
+{
+  "id":"mailpit","name":"Mailpit","version":"1.0.0","category":"tool","description":"Local SMTP inbox and browser-based mail viewer.","icon":"mail","dependencies":[],"conflicts":[],"settings":[],
+  "compose":{"service":"mailpit","image":"axllent/mailpit:latest","ports":[8025,1025]}
+}

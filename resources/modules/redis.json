@@ -1,0 +1,5 @@
+{
+  "id":"redis","name":"Redis","version":"1.0.0","category":"service","description":"Redis 8 cache and data store.","icon":"database","dependencies":[],"conflicts":[],
+  "settings":[{"id":"persistence","label":"Enable persistence","type":"boolean","default":true}],
+  "compose":{"service":"redis","image":"redis:8-alpine","ports":[6379]}
+}

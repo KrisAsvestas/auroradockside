@@ -1,0 +1,480 @@
+import { app } from 'electron'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+import { mkdir, readFile, writeFile, access, rm, readdir } from 'fs/promises'
+import { join } from 'path'
+import type { AuroraProjectDetail, AuroraProjectSummary, AuroraInstalledModule, AuroraModuleManifest, AuroraStackOptions } from '../shared/types'
+import { getModuleManifest, getModuleRegistry } from './moduleRegistry'
+
+const execFileAsync = promisify(execFile)
+const EXTRA_PATH_DIRS = ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']
+export const AURORA_ENV = { ...process.env, PATH: [...EXTRA_PATH_DIRS, process.env.PATH].join(':') }
+
+type AuroraConfig = {
+  name: string
+  type: string
+  docroot: string
+  php: string
+  node: string
+  webserver: 'nginx'
+  database: 'mariadb' | 'postgres'
+  databaseVersion: string
+  modules: string[]
+  moduleSettings?: Record<string, Record<string, string | number | boolean>>
+  primaryProtocol?: 'http' | 'https'
+  wordpressMultisite?: 'none' | 'subdirectory' | 'subdomain'
+  xdebug?: boolean
+}
+
+type Registry = { projects: Record<string, string> }
+const configDir = (root: string): string => join(root, '.aurora')
+const configPath = (root: string): string => join(configDir(root), 'config.json')
+const composePath = (root: string): string => join(configDir(root), 'compose.yaml')
+const phpDockerfilePath = (root: string): string => join(configDir(root), 'Dockerfile.php')
+const registryPath = (): string => join(app.getPath('userData'), 'projects.json')
+const routerDir = (): string => join(app.getPath('userData'), 'router')
+const routerConfigPath = (): string => join(routerDir(), 'dynamic.yaml')
+const certDir = (): string => join(app.getPath('userData'), 'certificates')
+const caDir = (): string => join(certDir(), 'ca')
+const projectsCertDir = (): string => join(certDir(), 'projects')
+const caKeyPath = (): string => join(caDir(), 'aurora-root-ca.key')
+const caCertPath = (): string => join(caDir(), 'aurora-root-ca.crt')
+const projectCertPath = (name: string): string => join(projectsCertDir(), `${safeName(name)}.crt`)
+const projectKeyPath = (name: string): string => join(projectsCertDir(), `${safeName(name)}.key`)
+const safeName = (name: string): string => name.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'project'
+const projectHost = (name: string): string => `${safeName(name)}.aurora.localhost`
+export const projectUrls = (name: string) => ({ http: `http://${projectHost(name)}`, https: `https://${projectHost(name)}` })
+
+async function loadRegistry(): Promise<Registry> {
+  try { return JSON.parse(await readFile(registryPath(), 'utf8')) as Registry } catch { return { projects: {} } }
+}
+async function saveRegistry(registry: Registry): Promise<void> {
+  await mkdir(app.getPath('userData'), { recursive: true })
+  await writeFile(registryPath(), JSON.stringify(registry, null, 2))
+}
+async function readConfig(root: string): Promise<AuroraConfig> {
+  return JSON.parse(await readFile(configPath(root), 'utf8')) as AuroraConfig
+}
+async function writeConfig(root: string, config: AuroraConfig): Promise<void> {
+  await mkdir(configDir(root), { recursive: true })
+  await writeFile(configPath(root), JSON.stringify(config, null, 2))
+  await writeFile(composePath(root), await renderCompose(config))
+}
+
+function indent(lines: string, spaces = 4): string {
+  const pad = ' '.repeat(spaces)
+  return lines.split('\n').map((line) => line ? pad + line : line).join('\n')
+}
+
+async function renderModuleService(module: AuroraModuleManifest, config: AuroraConfig): Promise<string> {
+  if (!module.compose) return ''
+  const { service, image, ports = [], dependsOn = [] } = module.compose
+  const settings = config.moduleSettings?.[module.id] ?? {}
+  const lines = [`${service}:`, `  image: ${image}`]
+  if (module.id === 'redis' && settings.persistence !== false) {
+    lines.push('  volumes:', '    - redis_data:/data')
+  }
+  if (ports.length) {
+    lines.push('  ports:')
+    for (const port of ports) lines.push(`    - "127.0.0.1::${port}"`)
+  }
+  if (dependsOn.length) lines.push('  depends_on:', ...dependsOn.map((dep) => `    - ${dep}`))
+  if (module.id === 'mailpit') lines.push('  networks:', '    default:', '    aurora-router:', '      aliases:', `        - aurora-${safeName(config.name)}-mailpit`)
+  return indent(lines.join('\n'), 2)
+}
+
+async function renderCompose(c: AuroraConfig): Promise<string> {
+  const db = c.database === 'postgres'
+    ? `  db:\n    image: postgres:${c.databaseVersion}\n    environment:\n      POSTGRES_DB: db\n      POSTGRES_USER: db\n      POSTGRES_PASSWORD: db\n    volumes:\n      - db_data:/var/lib/postgresql/data\n    healthcheck:\n      test: [\"CMD-SHELL\", \"pg_isready -U db -d db\"]\n      interval: 3s\n      timeout: 3s\n      retries: 20`
+    : `  db:\n    image: mariadb:${c.databaseVersion}\n    environment:\n      MARIADB_DATABASE: db\n      MARIADB_USER: db\n      MARIADB_PASSWORD: db\n      MARIADB_ROOT_PASSWORD: root\n    volumes:\n      - db_data:/var/lib/mysql\n    healthcheck:\n      test: [\"CMD\", \"healthcheck.sh\", \"--connect\", \"--innodb_initialized\"]\n      interval: 3s\n      timeout: 3s\n      retries: 20`
+  const manifests = await Promise.all(c.modules.filter((id) => id !== 'adminer').map((id) => getModuleManifest(id)))
+  const extras = (await Promise.all(manifests.map((m) => renderModuleService(m, c)))).filter(Boolean)
+  const volumes = ['  db_data:']
+  if (c.modules.includes('redis') && c.moduleSettings?.redis?.persistence !== false) volumes.push('  redis_data:')
+  const adminer = c.modules.includes('adminer') ? `  adminer:\n    image: adminer:5\n    environment:\n      ADMINER_DEFAULT_SERVER: db\n    networks:\n      default:\n      aurora-router:\n        aliases:\n          - aurora-${safeName(c.name)}-adminer\n    depends_on:\n      db:\n        condition: service_healthy` : ''
+  return `name: aurora-${safeName(c.name)}\nservices:\n  web:\n    image: nginx:1.29-alpine\n    working_dir: /var/www/html\n    volumes:\n      - ../:/var/www/html\n      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro\n    ports:\n      - "127.0.0.1::80"\n    networks:\n      default:\n      aurora-router:\n        aliases:\n          - aurora-${safeName(c.name)}-web\n    depends_on:\n      php:\n        condition: service_started\n      db:\n        condition: service_healthy\n  php:\n    build:\n      context: .\n      dockerfile: Dockerfile.php\n      args:\n        PHP_VERSION: ${c.php}\n    working_dir: /var/www/html\n    volumes:\n      - ../:/var/www/html\n  node:\n    image: node:${c.node}-alpine\n    working_dir: /var/www/html\n    volumes:\n      - ../:/var/www/html\n    command: ["sh", "-c", "sleep infinity"]\n${db}${adminer ? `\n${adminer}` : ''}${extras.length ? `\n${extras.join('\n')}` : ''}\nvolumes:\n${volumes.join('\n')}\nnetworks:\n  aurora-router:\n    external: true\n    name: aurora-router\n`
+}
+async function writePhpDockerfile(root: string, xdebug = false): Promise<void> {
+  await writeFile(phpDockerfilePath(root), `ARG PHP_VERSION=8.4
+FROM php:${'${PHP_VERSION}'}-fpm-alpine
+RUN apk add --no-cache icu-dev libzip-dev libpng-dev libjpeg-turbo-dev freetype-dev oniguruma-dev postgresql-dev \
+  && docker-php-ext-configure gd --with-freetype --with-jpeg \
+  && docker-php-ext-install -j$(nproc) mysqli pdo_mysql pdo_pgsql intl zip gd mbstring opcache
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+${xdebug ? 'RUN apk add --no-cache $PHPIZE_DEPS linux-headers && pecl install xdebug && docker-php-ext-enable xdebug' : ''}
+`)
+}
+
+async function writeNginx(root: string, docroot: string): Promise<void> {
+  const webroot = docroot ? `/var/www/html/${docroot}` : '/var/www/html'
+  await writeFile(join(configDir(root), 'nginx.conf'), `map $http_x_forwarded_proto $aurora_https {
+  default off;
+  https on;
+}
+server {
+  listen 80;
+  server_name _;
+  root ${webroot};
+  index index.php index.html;
+  location / { try_files $uri $uri/ /index.php?$query_string; }
+  location ~ \.php$ { include fastcgi_params; fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; fastcgi_param HTTPS $aurora_https; fastcgi_param HTTP_X_FORWARDED_PROTO $http_x_forwarded_proto; fastcgi_param HTTP_X_FORWARDED_HOST $http_x_forwarded_host; fastcgi_pass php:9000; }
+}
+`)
+}
+
+export async function createProject(root: string, name: string, type: string, docroot: string, stack?: Partial<AuroraStackOptions>): Promise<void> {
+  await mkdir(root, { recursive: true })
+  const normalizedType = type || 'generic'
+  const defaultDocroot = docroot || (normalizedType === 'laravel' ? 'public' : normalizedType === 'drupal' ? 'web' : '')
+  const modules = normalizedType === 'generic' || normalizedType === 'php' ? [] : [normalizedType]
+  if (stack?.adminer !== false) modules.push('adminer')
+  if (stack?.redis) modules.push('redis')
+  if (stack?.mailpit) modules.push('mailpit')
+  const config: AuroraConfig = { name, type: normalizedType, docroot: defaultDocroot, php: stack?.phpVersion || '8.4', node: stack?.nodeVersion || '24', webserver: 'nginx', database: stack?.database || 'mariadb', databaseVersion: stack?.databaseVersion || '11.8', modules, moduleSettings: {}, primaryProtocol: 'https', xdebug: stack?.xdebug === true }
+  await writeConfig(root, config); await writeNginx(root, defaultDocroot); await writePhpDockerfile(root, config.xdebug)
+  const reg = await loadRegistry(); reg.projects[name] = root; await saveRegistry(reg)
+  if (normalizedType === 'generic' || normalizedType === 'php') await writeFile(join(root, 'index.php'), `<?php echo '<h1>${name}</h1><p>Aurora Dockside is running.</p>';`)
+}
+export async function unregisterProject(name: string, deleteFiles: boolean): Promise<void> {
+  const reg = await loadRegistry(); const root = reg.projects[name]; delete reg.projects[name]; await saveRegistry(reg)
+  if (deleteFiles && root) await rm(root, { recursive: true, force: true })
+}
+async function composeJson(root: string): Promise<any[]> {
+  try { const { stdout } = await execFileAsync('docker', ['compose', '-f', composePath(root), 'ps', '--format', 'json'], { env: AURORA_ENV, maxBuffer: 8*1024*1024 }); return stdout.trim().split('\n').filter(Boolean).map(x => JSON.parse(x)) } catch { return [] }
+}
+export async function listProjects(): Promise<AuroraProjectSummary[]> {
+  const reg = await loadRegistry(); const out: AuroraProjectSummary[] = []
+  for (const [name, root] of Object.entries(reg.projects)) {
+    try { await access(configPath(root)); const c = await readConfig(root); const ps = await composeJson(root); const running = ps.some(p => p.State === 'running'); const urls = projectUrls(c.name); const primary = c.primaryProtocol === 'http' ? urls.http : urls.https
+      out.push({ name, status: running?'running':'stopped', status_desc: running?'Running':'Stopped', type:c.type, approot:root, shortroot:root, docroot:c.docroot, primary_url:primary, httpurl:urls.http, httpsurl:urls.https, mutagen_enabled:false })
+    } catch { /* stale registry entry */ }
+  } return out
+}
+export async function describeProject(name: string): Promise<AuroraProjectDetail> {
+  const reg = await loadRegistry(); const root = reg.projects[name]; if (!root) throw new Error(`Aurora project '${name}' not found`)
+  const c = await readConfig(root); const ps = await composeJson(root); const running = ps.some(p=>p.State==='running'); const currentRouterStatus = await routerStatus(); const urlSet=projectUrls(c.name); const primary=c.primaryProtocol === 'http' ? urlSet.http : urlSet.https
+  const services: Record<string, any> = {}; for (const p of ps) services[p.Service]={short_name:p.Service,full_name:p.Name,status:p.State,image:p.Image,exposed_ports:'',host_ports:'',host_ports_mapping:[]}
+  return { name,status:running?'running':'stopped',status_desc:running?'Running':'Stopped',type:c.type,approot:root,shortroot:root,docroot:c.docroot,primary_url:primary,httpurl:urlSet.http,httpsurl:urlSet.https,mutagen_enabled:false,database_type:c.database,database_version:c.databaseVersion,dbinfo:{database_type:c.database,database_version:c.databaseVersion,dbPort:c.database==='postgres'?'5432':'3306',dbname:'db',host:'db',password:'db',published_port:0,username:'db'},hostname:projectHost(c.name),hostnames:[projectHost(c.name)],httpURLs:[urlSet.http],httpsURLs:[urlSet.https],urls:[urlSet.http,urlSet.https],php_version:c.php,nodejs_version:c.node,webserver_type:'nginx',router:'file',router_status:currentRouterStatus,certificate_status:await certificateStatus(c.name),ca_trust_status:await caTrustStatus(),firefox_trust_status:await firefoxTrustStatus(),chromium_trust_status:await chromiumTrustStatus(),wordpress_multisite:c.type==='wordpress'?(c.wordpressMultisite??'none'):undefined,wordpress_network_admin_url:c.type==='wordpress'&&c.wordpressMultisite&&c.wordpressMultisite!=='none'?`${primary.replace(/\/$/,'')}/wp-admin/network/`:undefined,adminer_url:c.modules.includes('adminer')?`https://adminer.${projectHost(c.name)}`:undefined,services,xdebug_enabled:c.xdebug===true }
+}
+export async function updateEnvironment(root:string, updates:{phpVersion?:string;nodeVersion?:string;database?:string;xdebugEnabled?:boolean;primaryProtocol?:'http'|'https'}):Promise<void>{
+  const c=await readConfig(root)
+  if(updates.phpVersion)c.php=updates.phpVersion
+  if(updates.nodeVersion)c.node=updates.nodeVersion
+  if(typeof updates.xdebugEnabled === 'boolean') c.xdebug=updates.xdebugEnabled
+  if(updates.database){const [kind,version]=updates.database.split(':'); if(kind==='mariadb'||kind==='postgres'){c.database=kind;c.databaseVersion=version||c.databaseVersion}}
+  if(updates.primaryProtocol === 'http' || updates.primaryProtocol === 'https') c.primaryProtocol = updates.primaryProtocol
+  await writeConfig(root,c); await writeNginx(root,c.docroot); await writePhpDockerfile(root, c.xdebug === true)
+}
+
+export async function getProjectConfig(root: string): Promise<AuroraConfig> { return readConfig(root) }
+
+export async function setWordpressMultisite(root: string, mode: 'none' | 'subdirectory' | 'subdomain'): Promise<void> {
+  const config = await readConfig(root)
+  config.wordpressMultisite = mode
+  await writeConfig(root, config)
+}
+
+export async function routerStatus(): Promise<'running' | 'provider-error' | 'stopped'> {
+  try {
+    const { stdout } = await execFileAsync('docker', ['inspect', '-f', '{{.State.Running}}', 'aurora-router'], { env: AURORA_ENV })
+    if (stdout.trim() !== 'true') return 'stopped'
+    const { stdout: logs = '', stderr: logErrors = '' } = await execFileAsync('docker', ['logs', '--tail', '40', 'aurora-router'], { env: AURORA_ENV, maxBuffer: 2 * 1024 * 1024 })
+    const recentLogs = `${logs}\n${logErrors}`
+    if (recentLogs.includes('Error while building configuration') || recentLogs.includes('field not found, node:')) return 'provider-error'
+    return 'running'
+  } catch { return 'stopped' }
+}
+
+export async function routerRunning(): Promise<boolean> {
+  return (await routerStatus()) === 'running'
+}
+
+export async function listModules(): Promise<AuroraModuleManifest[]> {
+  return getModuleRegistry()
+}
+
+export async function listInstalledModules(name: string): Promise<AuroraInstalledModule[]> {
+  const reg = await loadRegistry()
+  const root = reg.projects[name]
+  if (!root) throw new Error(`Aurora project '${name}' not found`)
+  const config = await readConfig(root)
+  const manifests = await Promise.all(config.modules.map((id) => getModuleManifest(id)))
+  return manifests.map((module) => ({ id: module.id, name: module.name, version: module.version, category: module.category }))
+}
+
+export async function setModule(
+  name: string,
+  moduleId: string,
+  install: boolean,
+  settings: Record<string, string | number | boolean> = {}
+): Promise<void> {
+  const reg = await loadRegistry()
+  const root = reg.projects[name]
+  if (!root) throw new Error(`Aurora project '${name}' not found`)
+  const config = await readConfig(root)
+  const module = await getModuleManifest(moduleId)
+  config.moduleSettings ??= {}
+
+  if (install) {
+    const conflict = module.conflicts.find((id) => config.modules.includes(id))
+    if (conflict) throw new Error(`${module.name} conflicts with the installed '${conflict}' application module.`)
+    for (const dependency of module.dependencies) {
+      if (!config.modules.includes(dependency)) config.modules.push(dependency)
+    }
+    if (!config.modules.includes(moduleId)) config.modules.push(moduleId)
+    config.moduleSettings[moduleId] = Object.fromEntries(module.settings.map((item) => [item.id, item.default]))
+    Object.assign(config.moduleSettings[moduleId], settings)
+    if (module.category === 'application') {
+      config.type = moduleId
+      if (module.defaults?.docroot !== undefined) config.docroot = module.defaults.docroot
+    }
+  } else {
+    const dependents = (await getModuleRegistry()).filter((item) => item.dependencies.includes(moduleId) && config.modules.includes(item.id))
+    if (dependents.length) throw new Error(`Cannot remove ${module.name}; required by ${dependents.map((item) => item.name).join(', ')}.`)
+    config.modules = config.modules.filter((id) => id !== moduleId)
+    delete config.moduleSettings[moduleId]
+    if (config.type === moduleId) config.type = 'generic'
+  }
+  await writeConfig(root, config)
+  await writeNginx(root, config.docroot)
+  await writePhpDockerfile(root, config.xdebug === true)
+}
+
+export async function scaffoldApplicationModule(name: string, moduleId: string): Promise<void> {
+  const root = await getProjectRoot(name)
+  const module = await getModuleManifest(moduleId)
+  if (module.category !== 'application') return
+  if (moduleId === 'wordpress') {
+    await execFileAsync('docker', ['run', '--rm', '-v', `${root}:/app`, '-w', '/app', 'wordpress:cli', 'core', 'download', '--skip-content', '--force', '--allow-root'], { env: AURORA_ENV, maxBuffer: 16 * 1024 * 1024 })
+    return
+  }
+  const packageName = moduleId === 'laravel' ? 'laravel/laravel' : moduleId === 'drupal' ? 'drupal/recommended-project' : null
+  if (!packageName) return
+  await execFileAsync('docker', ['run', '--rm', '-v', `${root}:/app`, 'composer:2', 'sh', '-lc', `rm -rf /tmp/aurora-app && composer create-project ${packageName} /tmp/aurora-app --no-interaction && cp -a /tmp/aurora-app/. /app/`], { env: AURORA_ENV, maxBuffer: 32 * 1024 * 1024 })
+}
+
+export async function getProjectRoot(name:string):Promise<string>{const r=await loadRegistry();if(!r.projects[name])throw new Error(`Project ${name} not found`);return r.projects[name]}
+
+export async function getProjectConfigByRoot(root: string): Promise<{ database: 'mariadb' | 'postgres'; databaseVersion: string; name: string }> {
+  const config = await readConfig(root)
+  return { database: config.database, databaseVersion: config.databaseVersion, name: config.name }
+}
+
+
+
+async function ensureCertificateAuthority(): Promise<void> {
+  await mkdir(caDir(), { recursive: true })
+  try { await access(caKeyPath()); await access(caCertPath()); return } catch { /* create below */ }
+  await execFileAsync('openssl', ['req','-x509','-newkey','rsa:3072','-sha256','-days','3650','-nodes','-keyout',caKeyPath(),'-out',caCertPath(),'-subj','/CN=Aurora Dockside Local Development CA','-addext','basicConstraints=critical,CA:TRUE','-addext','keyUsage=critical,keyCertSign,cRLSign'], { env: AURORA_ENV, maxBuffer: 8*1024*1024 })
+}
+
+async function ensureProjectCertificate(name: string): Promise<void> {
+  await ensureCertificateAuthority()
+  await mkdir(projectsCertDir(), { recursive: true })
+  const cert = projectCertPath(name); const key = projectKeyPath(name)
+  try { await access(cert); await access(key); return } catch { /* create below */ }
+  const host = projectHost(name)
+  const csr = join(projectsCertDir(), `${safeName(name)}.csr`)
+  await execFileAsync('openssl', ['req','-new','-newkey','rsa:2048','-nodes','-keyout',key,'-out',csr,'-subj',`/CN=${host}`,'-addext',`subjectAltName=DNS:${host},DNS:*.${host}`], { env: AURORA_ENV, maxBuffer: 8*1024*1024 })
+  await execFileAsync('openssl', ['x509','-req','-in',csr,'-CA',caCertPath(),'-CAkey',caKeyPath(),'-CAcreateserial','-out',cert,'-days','825','-sha256','-copy_extensions','copy'], { env: AURORA_ENV, maxBuffer: 8*1024*1024 })
+  await rm(csr, { force: true })
+}
+
+export async function certificateStatus(name: string): Promise<'generated' | 'missing'> {
+  try { await access(projectCertPath(name)); await access(projectKeyPath(name)); return 'generated' } catch { return 'missing' }
+}
+
+export async function caTrustStatus(): Promise<'trusted' | 'not-trusted' | 'unknown'> {
+  if (process.platform !== 'linux') return 'unknown'
+  try { await access('/usr/local/share/ca-certificates/aurora-dockside-local-ca.crt'); return 'trusted' } catch { return 'not-trusted' }
+}
+
+const firefoxRoots = (): string[] => {
+  const home = process.env.HOME || app.getPath('home')
+  return [join(home,'.mozilla','firefox'), join(home,'snap','firefox','common','.mozilla','firefox')]
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try { await access(path); return true } catch { return false }
+}
+
+async function firefoxProfiles(): Promise<string[]> {
+  const profiles: string[] = []
+  for (const root of firefoxRoots()) {
+    // Prefer the active/default profile declared by Firefox itself.
+    try {
+      const ini = await readFile(join(root, 'profiles.ini'), 'utf8')
+      const sections = ini.split(/^\s*\[/m).map((section, index) => index === 0 ? section : '[' + section)
+      for (const section of sections) {
+        if (!/^\[Profile\d+\]/m.test(section) || !/^Default=1\s*$/m.test(section)) continue
+        const match = section.match(/^Path=(.+)\s*$/m)
+        if (!match) continue
+        const profile = join(root, match[1].trim())
+        if (await pathExists(join(profile, 'cert9.db'))) profiles.push(profile)
+      }
+    } catch { /* no profiles.ini */ }
+
+    // Fall back to every NSS profile, but never add duplicates.
+    try {
+      for (const entry of await readdir(root, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue
+        const dir = join(root, entry.name)
+        if (!profiles.includes(dir) && await pathExists(join(dir,'cert9.db'))) profiles.push(dir)
+      }
+    } catch { /* Firefox root does not exist */ }
+  }
+  return profiles
+}
+
+async function hasCertutil(): Promise<boolean> {
+  try { await execFileAsync('certutil',['-L','-d','sql:/dev/null'],{env:AURORA_ENV,maxBuffer:1024*1024}); return true } catch (e:any) {
+    return e?.code !== 'ENOENT'
+  }
+}
+
+async function nssHasTrustedAuroraCA(db: string): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync('certutil',['-L','-d',`sql:${db}`],{env:AURORA_ENV,maxBuffer:1024*1024})
+    const line = stdout.split(/\r?\n/).find((value) => value.includes('Aurora Dockside Local Development CA'))
+    return Boolean(line && /\bC,,\s*$/.test(line.trim()))
+  } catch { return false }
+}
+
+export async function firefoxTrustStatus(): Promise<'trusted' | 'not-trusted' | 'unavailable' | 'unknown'> {
+  if (process.platform !== 'linux') return 'unknown'
+  if (!(await hasCertutil())) return 'unavailable'
+  const profiles = await firefoxProfiles()
+  if (!profiles.length) return 'unknown'
+  for (const profile of profiles) if (!(await nssHasTrustedAuroraCA(profile))) return 'not-trusted'
+  return 'trusted'
+}
+
+const chromiumNssDb = (): string => join(process.env.HOME || app.getPath('home'), '.pki', 'nssdb')
+
+async function chromiumTrustTargetExists(): Promise<boolean> {
+  const db = chromiumNssDb()
+  if (await pathExists(join(db, 'cert9.db'))) return true
+  for (const command of ['google-chrome','google-chrome-stable','chromium','chromium-browser','brave-browser','microsoft-edge','vivaldi']) {
+    try { await execFileAsync('which',[command],{env:AURORA_ENV,maxBuffer:1024*1024}); return true } catch { /* try next */ }
+  }
+  return false
+}
+
+export async function chromiumTrustStatus(): Promise<'trusted' | 'not-trusted' | 'unavailable' | 'unknown'> {
+  if (process.platform !== 'linux') return 'unknown'
+  if (!(await chromiumTrustTargetExists())) return 'unknown'
+  if (!(await hasCertutil())) return 'unavailable'
+  return await nssHasTrustedAuroraCA(chromiumNssDb()) ? 'trusted' : 'not-trusted'
+}
+
+async function installIntoNssDb(db: string): Promise<void> {
+  await mkdir(db, { recursive: true })
+  if (!(await pathExists(join(db,'cert9.db')))) {
+    await execFileAsync('certutil',['-N','--empty-password','-d',`sql:${db}`],{env:AURORA_ENV,maxBuffer:1024*1024})
+  }
+  try { await execFileAsync('certutil',['-D','-d',`sql:${db}`,'-n','Aurora Dockside Local Development CA'],{env:AURORA_ENV,maxBuffer:1024*1024}) } catch { /* absent is fine */ }
+  await execFileAsync('certutil',['-A','-d',`sql:${db}`,'-n','Aurora Dockside Local Development CA','-t','C,,','-i',caCertPath()],{env:AURORA_ENV,maxBuffer:1024*1024})
+  if (!(await nssHasTrustedAuroraCA(db))) throw new Error(`Aurora CA import verification failed for NSS database: ${db}`)
+}
+
+export async function trustAuroraCA(): Promise<void> {
+  await ensureCertificateAuthority()
+  if (process.platform !== 'linux') throw new Error('Automatic CA trust is currently implemented for Linux only.')
+
+  const script = `install -m 0644 "${caCertPath().replace(/"/g, '\\"')}" /usr/local/share/ca-certificates/aurora-dockside-local-ca.crt && update-ca-certificates`
+  await execFileAsync('pkexec', ['sh','-c',script], { env: AURORA_ENV, maxBuffer: 8*1024*1024 })
+
+  if (!(await hasCertutil())) {
+    await execFileAsync('pkexec',['sh','-c','apt-get update && apt-get install -y libnss3-tools'],{env:AURORA_ENV,maxBuffer:32*1024*1024})
+  }
+
+  // These are the exact stores verified on Ubuntu: Snap/native Firefox profiles
+  // and the shared Chromium NSS database at ~/.pki/nssdb.
+  const profiles = await firefoxProfiles()
+  for (const profile of profiles) await installIntoNssDb(profile)
+
+  if (await chromiumTrustTargetExists()) await installIntoNssDb(chromiumNssDb())
+
+  const firefox = await firefoxTrustStatus()
+  const chromium = await chromiumTrustStatus()
+  if (profiles.length && firefox !== 'trusted') throw new Error('Aurora CA could not be verified in the active Firefox NSS trust store.')
+  if (await chromiumTrustTargetExists() && chromium !== 'trusted') throw new Error('Aurora CA could not be verified in ~/.pki/nssdb for Chromium-family browsers.')
+}
+
+async function writeRouterConfig(): Promise<void> {
+  const registry = await loadRegistry()
+  const routers: string[] = []
+  const services: string[] = []
+  for (const [name, root] of Object.entries(registry.projects)) {
+    try {
+      const config = await readConfig(root)
+      await ensureProjectCertificate(config.name || name)
+      const safe = safeName(config.name || name)
+      const host = projectHost(config.name || name)
+      const rule = config.type === 'wordpress' && config.wordpressMultisite === 'subdomain'
+        ? `Host(\`${host}\`) || HostRegexp(\`^[a-z0-9-]+\\.${host.replace(/\./g, '\\.')}$\`)`
+        : `Host(\`${host}\`)`
+      routers.push(
+        `    aurora-${safe}-http:\n      rule: '${rule}'\n      entryPoints: [web]\n      service: aurora-${safe}`,
+        `    aurora-${safe}-https:\n      rule: '${rule}'\n      entryPoints: [websecure]\n      service: aurora-${safe}\n      tls: {}`
+      )
+      services.push(`    aurora-${safe}:\n      loadBalancer:\n        servers:\n          - url: http://aurora-${safe}-web:80`)
+      if (config.modules.includes('adminer')) routers.push(
+        `    aurora-${safe}-adminer-http:\n      rule: 'Host(\`adminer.${host}\`)'\n      entryPoints: [web]\n      service: aurora-${safe}-adminer`,
+        `    aurora-${safe}-adminer-https:\n      rule: 'Host(\`adminer.${host}\`)'\n      entryPoints: [websecure]\n      service: aurora-${safe}-adminer\n      tls: {}`
+      )
+      if (config.modules.includes('adminer')) services.push(`    aurora-${safe}-adminer:\n      loadBalancer:\n        servers:\n          - url: http://aurora-${safe}-adminer:8080`)
+      if (config.modules.includes('mailpit')) {
+        routers.push(
+          `    aurora-${safe}-mailpit-http:\n      rule: 'Host(\`mail.${host}\`)'\n      entryPoints: [web]\n      service: aurora-${safe}-mailpit`,
+          `    aurora-${safe}-mailpit-https:\n      rule: 'Host(\`mail.${host}\`)'\n      entryPoints: [websecure]\n      service: aurora-${safe}-mailpit\n      tls: {}`
+        )
+        services.push(`    aurora-${safe}-mailpit:\n      loadBalancer:\n        servers:\n          - url: http://aurora-${safe}-mailpit:8025`)
+      }
+    } catch { /* ignore stale registry entries */ }
+  }
+  const tlsCerts: string[] = []
+  for (const [name, root] of Object.entries(registry.projects)) {
+    try { const config = await readConfig(root); const safe = safeName(config.name || name); tlsCerts.push(`    - certFile: /etc/traefik/certs/${safe}.crt\n      keyFile: /etc/traefik/certs/${safe}.key`) } catch { /* stale */ }
+  }
+  const dynamic = `http:\n  routers:\n${routers.length ? routers.join('\n') : '    {}'}\n  services:\n${services.length ? services.join('\n') : '    {}'}\n${tlsCerts.length ? `tls:\n  certificates:\n${tlsCerts.join('\n')}\n` : ''}`
+  await mkdir(routerDir(), { recursive: true })
+  await writeFile(routerConfigPath(), dynamic)
+}
+
+export async function ensureRouter(): Promise<void> {
+  try { await execFileAsync('docker', ['network', 'inspect', 'aurora-router'], { env: AURORA_ENV }) }
+  catch { await execFileAsync('docker', ['network', 'create', 'aurora-router'], { env: AURORA_ENV }) }
+
+  await writeRouterConfig()
+
+  try {
+    const { stdout } = await execFileAsync('docker', ['inspect', '-f', '{{.State.Running}} {{json .Config.Cmd}}', 'aurora-router'], { env: AURORA_ENV })
+    const fileProvider = stdout.includes('--providers.file.directory=/etc/traefik/dynamic')
+    if (stdout.trimStart().startsWith('true') && fileProvider) return
+    await execFileAsync('docker', ['rm', '-f', 'aurora-router'], { env: AURORA_ENV }).catch(() => undefined)
+  } catch { /* router does not exist yet */ }
+
+  await execFileAsync('docker', [
+    'run', '-d', '--name', 'aurora-router', '--restart', 'unless-stopped',
+    '--network', 'aurora-router',
+    '-p', '127.0.0.1:80:80', '-p', '127.0.0.1:443:443',
+    '-v', `${routerDir()}:/etc/traefik/dynamic:ro`,
+    '-v', `${projectsCertDir()}:/etc/traefik/certs:ro`,
+    'traefik:v3.5',
+    '--providers.file.directory=/etc/traefik/dynamic', '--providers.file.watch=true',
+    '--entrypoints.web.address=:80', '--entrypoints.websecure.address=:443',
+    '--api.dashboard=false', '--log.level=INFO'
+  ], { env: AURORA_ENV, maxBuffer: 8 * 1024 * 1024 })
+}
+
+export async function powerOffProjects(): Promise<void> {
+  const registry = await loadRegistry()
+  await Promise.allSettled(Object.values(registry.projects).map(async (root) => {
+    try {
+      await access(composePath(root))
+      await execFileAsync('docker', ['compose', '-f', composePath(root), 'down'], { env: AURORA_ENV, cwd: root })
+    } catch { /* stale project or Docker unavailable */ }
+  }))
+}
+

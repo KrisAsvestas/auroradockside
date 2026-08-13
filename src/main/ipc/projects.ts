@@ -1,0 +1,44 @@
+import { ipcMain } from 'electron'
+import { spawn } from 'child_process'
+import { listProjects, describeProject, getProjectRoot, unregisterProject, updateEnvironment, ensureRouter, getProjectConfig, projectUrls, AURORA_ENV, trustAuroraCA } from '../auroraEngine'
+import { runCommandStreamed } from '../commandRunner'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+const execFileAsync = promisify(execFile)
+const composeArgs=(root:string,...args:string[])=>['compose','-f',`${root}/.aurora/compose.yaml`,...args]
+const allowedServices = new Set(['web','php','db','node','adminer','redis','mailpit'])
+export function registerProjectsIpc():void{
+ ipcMain.handle('projects:list',()=>listProjects()); ipcMain.handle('projects:describe',(_e,name:string)=>describeProject(name))
+ ipcMain.handle('projects:start',async(e,id:string,name:string)=>{const root=await getProjectRoot(name);await updateEnvironment(root,{});await ensureRouter();return runCommandStreamed(id,'docker',composeArgs(root,'up','-d','--build','--remove-orphans'),e.sender,{cwd:root})})
+ ipcMain.handle('projects:stop',async(e,id:string,name:string)=>{const root=await getProjectRoot(name);return runCommandStreamed(id,'docker',composeArgs(root,'down'),e.sender,{cwd:root})})
+ ipcMain.handle('projects:restart',async(e,id:string,name:string)=>{const root=await getProjectRoot(name);await updateEnvironment(root,{});await ensureRouter();return runCommandStreamed(id,'docker',composeArgs(root,'up','-d','--build','--force-recreate','--remove-orphans'),e.sender,{cwd:root})})
+ ipcMain.handle('projects:restartService',async(e,id:string,name:string,service:string)=>{if(!allowedServices.has(service))throw new Error('Invalid service');const root=await getProjectRoot(name);return runCommandStreamed(id,'docker',composeArgs(root,'restart',service),e.sender,{cwd:root})})
+ ipcMain.handle('projects:phpInfo',async(e,id:string,name:string)=>{const root=await getProjectRoot(name);return runCommandStreamed(id,'docker',composeArgs(root,'exec','-T','php','php','-i'),e.sender,{cwd:root})})
+ ipcMain.handle('projects:openTerminal',async(_e,name:string)=>{const root=await getProjectRoot(name);const candidates: Array<[string,string[]]>=process.platform==='linux'?[['x-terminal-emulator',['--working-directory',root]],['gnome-terminal',['--working-directory',root]],['konsole',['--workdir',root]]]:[];for(const [cmd,args] of candidates){try{const child=spawn(cmd,args,{detached:true,stdio:'ignore'});child.unref();return}catch{}}throw new Error('No supported terminal application was found.')})
+ ipcMain.handle('projects:delete',async(e,id:string,name:string,approot:string,deleteFiles:boolean)=>{
+  let root=approot
+  try { root=await getProjectRoot(name) } catch { /* use renderer-provided root for stale entries */ }
+  try {
+   await runCommandStreamed(id,'docker',composeArgs(root,'down','-v','--remove-orphans'),e.sender,{cwd:root})
+  } catch (error) {
+   // A malformed/missing compose file must never make a project undeletable.
+   console.warn(`Aurora cleanup for '${name}' skipped:`, error)
+  }
+  await unregisterProject(name,deleteFiles)
+ })
+ ipcMain.handle('projects:trustCA',async()=>{ await trustAuroraCA(); await ensureRouter() })
+ ipcMain.handle('projects:updateEnvironment',async(_e,_id:string,_name:string,root:string,updates:any)=>{
+  await updateEnvironment(root,updates)
+  if (updates.primaryProtocol) {
+    const config = await getProjectConfig(root)
+    if (config.type === 'wordpress') {
+      const url = projectUrls(config.name)[updates.primaryProtocol === 'http' ? 'http' : 'https']
+      const network = `aurora-${config.name.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'project'}_default`
+      // Keep WordPress' canonical home/siteurl aligned with Dockside's primary protocol.
+      // WP-CLI talks to MariaDB over the project network; it does not need to trust local TLS.
+      await execFileAsync('docker', ['run','--rm','--network',network,'-e','HOME=/tmp','-v',`${root}:/app`,'-w','/app','wordpress:cli','option','update','home',url,'--allow-root'], { env: AURORA_ENV, maxBuffer: 8*1024*1024 })
+      await execFileAsync('docker', ['run','--rm','--network',network,'-e','HOME=/tmp','-v',`${root}:/app`,'-w','/app','wordpress:cli','option','update','siteurl',url,'--allow-root'], { env: AURORA_ENV, maxBuffer: 8*1024*1024 })
+    }
+  }
+})
+}

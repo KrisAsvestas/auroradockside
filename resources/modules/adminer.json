@@ -1,0 +1,4 @@
+{
+  "id":"adminer","name":"Adminer","version":"1.0.0","category":"tool","description":"Lightweight browser database administration.","icon":"database","dependencies":[],"conflicts":[],"settings":[],
+  "compose":{"service":"adminer","image":"adminer:latest","ports":[8080],"dependsOn":["db"]}
+}
