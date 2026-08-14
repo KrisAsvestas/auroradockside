@@ -171,11 +171,14 @@ LoadModule proxy_fcgi_module modules/mod_proxy_fcgi.so
 LoadModule rewrite_module modules/mod_rewrite.so
 LoadModule unixd_module modules/mod_unixd.so
 LoadModule log_config_module modules/mod_log_config.so
+LoadModule setenvif_module modules/mod_setenvif.so
 User daemon
 Group daemon
 ServerName localhost
 DocumentRoot "${webroot}"
 DirectoryIndex index.php index.html
+SetEnvIf X-Forwarded-Proto "^https$" HTTPS=on
+SetEnvIf X-Forwarded-Port "^443$" SERVER_PORT=443
 <Directory "${webroot}">
     Options Indexes FollowSymLinks
     AllowOverride All
