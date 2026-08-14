@@ -134,7 +134,7 @@ async function writePhpDockerfile(root: string, xdebug = false): Promise<void> {
 FROM php:${'${PHP_VERSION}'}-fpm-alpine
 RUN apk add --no-cache icu-dev libzip-dev libpng-dev libjpeg-turbo-dev freetype-dev oniguruma-dev postgresql-dev \
   && docker-php-ext-configure gd --with-freetype --with-jpeg \
-  && docker-php-ext-install -j$(nproc) mysqli pdo_mysql pdo_pgsql intl zip gd mbstring opcache
+  && docker-php-ext-install -j2 mysqli pdo_mysql pdo_pgsql intl zip gd mbstring
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 ${xdebug ? 'RUN apk add --no-cache $PHPIZE_DEPS linux-headers && pecl install xdebug && docker-php-ext-enable xdebug' : ''}
 `)
@@ -582,6 +582,7 @@ export async function refreshRuntimeImages(): Promise<RuntimeImageRefreshResult>
   for (const root of roots) {
     try {
       await access(composePath(root))
+      const config = await readConfig(root)
       // Pulls Node, nginx/Apache, MySQL/MariaDB/PostgreSQL, Adminer, Redis,
       // Mailpit, and module-provided images. Running containers are not
       // restarted, so an update cannot interrupt current work.
@@ -590,12 +591,14 @@ export async function refreshRuntimeImages(): Promise<RuntimeImageRefreshResult>
         ['compose', '-f', composePath(root), 'pull', '--ignore-buildable', '--policy', 'always'],
         { cwd: root, env: AURORA_ENV, maxBuffer: 32 * 1024 * 1024 }
       )
-      // PHP is an Aurora-built image. --pull checks the selected php:<version>
-      // base tag for a newer patch/security revision before using the cache.
+      // PHP is built locally by Aurora. Refresh only its selected upstream
+      // base here; compiling in the background can collide with a user-started
+      // project build. Docker will consume the refreshed base on the next
+      // normal project build.
       await execFileAsync(
         'docker',
-        ['compose', '-f', composePath(root), 'build', '--pull', 'php'],
-        { cwd: root, env: AURORA_ENV, maxBuffer: 32 * 1024 * 1024 }
+        ['pull', `php:${config.php}-fpm-alpine`],
+        { env: AURORA_ENV, maxBuffer: 32 * 1024 * 1024 }
       )
       refreshedProjects += 1
     } catch (error) {
