@@ -100,9 +100,9 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
         className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-white/70 bg-white text-neutral-900 shadow-[0_30px_100px_rgba(15,23,42,0.28)] dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-100 dark:shadow-[0_30px_100px_rgba(0,0,0,0.48)] md:grid-cols-[0.82fr_1.18fr]"
         style={{ height: 'min(760px, calc(100vh - 24px))', maxHeight: 'calc(100vh - 24px)' }}
       >
-        <aside className="relative hidden overflow-hidden bg-neutral-950 p-6 text-white md:block">
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(45,212,191,0.11)_1px,transparent_1px),linear-gradient(90deg,rgba(45,212,191,0.11)_1px,transparent_1px)] bg-[size:34px_34px]" />
-          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-cyan-500/20 to-transparent" />
+        <aside className="relative hidden overflow-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 p-6 text-neutral-950 dark:bg-none dark:bg-neutral-950 dark:text-white md:block">
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.09)_1px,transparent_1px)] bg-[size:34px_34px] dark:bg-[linear-gradient(rgba(45,212,191,0.11)_1px,transparent_1px),linear-gradient(90deg,rgba(45,212,191,0.11)_1px,transparent_1px)]" />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-cyan-200/55 to-transparent dark:from-cyan-500/20" />
           <div className="relative flex h-full flex-col justify-between">
             <div>
               <img
@@ -110,7 +110,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                 alt=""
                 className="mb-5 size-16 rounded-2xl shadow-lg shadow-cyan-950/30"
               />
-              <p className="text-xs font-semibold uppercase tracking-wide text-cyan-200">
+              <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-200">
                 Project launch
               </p>
               <h2 className="mt-3 text-3xl font-semibold leading-tight">
@@ -119,16 +119,16 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
             </div>
 
             <div className="grid gap-3">
-              <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+              <div className="rounded-xl border border-cyan-200/80 bg-white/75 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.08]">
+                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                   Destination
                 </p>
                 <p className="mt-1 truncate text-sm font-semibold">
                   {directory ? directory.split('/').filter(Boolean).pop() : 'Choose a folder'}
                 </p>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+              <div className="rounded-xl border border-cyan-200/80 bg-white/75 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.08]">
+                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                   Project
                 </p>
                 <p className="mt-1 truncate text-sm font-semibold">
