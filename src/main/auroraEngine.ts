@@ -17,7 +17,7 @@ type AuroraConfig = {
   php: string
   node: string
   webserver: 'nginx' | 'apache'
-  database: 'mariadb' | 'postgres'
+  database: 'mariadb' | 'mysql' | 'postgres'
   databaseVersion: string
   modules: string[]
   moduleSettings?: Record<string, Record<string, string | number | boolean>>
@@ -113,7 +113,9 @@ async function renderModuleService(module: AuroraModuleManifest, config: AuroraC
 async function renderCompose(c: AuroraConfig): Promise<string> {
   const db = c.database === 'postgres'
     ? `  db:\n    image: postgres:${c.databaseVersion}\n    environment:\n      POSTGRES_DB: db\n      POSTGRES_USER: db\n      POSTGRES_PASSWORD: db\n    volumes:\n      - db_data:/var/lib/postgresql/data\n    healthcheck:\n      test: [\"CMD-SHELL\", \"pg_isready -U db -d db\"]\n      interval: 3s\n      timeout: 3s\n      retries: 20`
-    : `  db:\n    image: mariadb:${c.databaseVersion}\n    environment:\n      MARIADB_DATABASE: db\n      MARIADB_USER: db\n      MARIADB_PASSWORD: db\n      MARIADB_ROOT_PASSWORD: root\n    volumes:\n      - db_data:/var/lib/mysql\n    healthcheck:\n      test: [\"CMD\", \"healthcheck.sh\", \"--connect\", \"--innodb_initialized\"]\n      interval: 3s\n      timeout: 3s\n      retries: 20`
+    : c.database === 'mysql'
+      ? `  db:\n    image: mysql:${c.databaseVersion}\n    environment:\n      MYSQL_DATABASE: db\n      MYSQL_USER: db\n      MYSQL_PASSWORD: db\n      MYSQL_ROOT_PASSWORD: root\n    volumes:\n      - db_data:/var/lib/mysql\n    healthcheck:\n      test: [\"CMD-SHELL\", \"mysqladmin ping -h localhost -uroot -proot --silent\"]\n      interval: 3s\n      timeout: 3s\n      retries: 20`
+      : `  db:\n    image: mariadb:${c.databaseVersion}\n    environment:\n      MARIADB_DATABASE: db\n      MARIADB_USER: db\n      MARIADB_PASSWORD: db\n      MARIADB_ROOT_PASSWORD: root\n    volumes:\n      - db_data:/var/lib/mysql\n    healthcheck:\n      test: [\"CMD\", \"healthcheck.sh\", \"--connect\", \"--innodb_initialized\"]\n      interval: 3s\n      timeout: 3s\n      retries: 20`
   const coreServices: Record<string, AuroraModuleManifest> = {
     redis: { id: 'redis', name: 'Redis', version: '1.0.0', category: 'service', description: '', dependencies: [], conflicts: [], settings: [], aurora: { core: CORE_VERSION, moduleApi: MODULE_API_VERSION }, compose: { service: 'redis', image: 'redis:8-alpine', ports: [6379] } },
     mailpit: { id: 'mailpit', name: 'Mailpit', version: '1.0.0', category: 'tool', description: '', dependencies: [], conflicts: [], settings: [], aurora: { core: CORE_VERSION, moduleApi: MODULE_API_VERSION }, compose: { service: 'mailpit', image: 'axllent/mailpit:latest', ports: [8025, 1025] } }
@@ -239,7 +241,7 @@ export async function updateEnvironment(root:string, updates:{phpVersion?:string
   if(updates.webserverType === 'nginx' || updates.webserverType === 'nginx-fpm') c.webserver='nginx'
   if(updates.webserverType === 'apache' || updates.webserverType === 'apache-fpm') c.webserver='apache'
   if(typeof updates.xdebugEnabled === 'boolean') c.xdebug=updates.xdebugEnabled
-  if(updates.database){const [kind,version]=updates.database.split(':'); if(kind==='mariadb'||kind==='postgres'){c.database=kind;c.databaseVersion=version||c.databaseVersion}}
+  if(updates.database){const [kind,version]=updates.database.split(':'); if(kind==='mariadb'||kind==='mysql'||kind==='postgres'){c.database=kind;c.databaseVersion=version||c.databaseVersion}}
   if(updates.primaryProtocol === 'http' || updates.primaryProtocol === 'https') c.primaryProtocol = updates.primaryProtocol
   await writeConfig(root,c); await writeWebServerConfig(root,c); await writePhpDockerfile(root, c.xdebug === true)
 }
@@ -331,7 +333,7 @@ export async function scaffoldApplicationModule(_name: string, moduleId: string)
 
 export async function getProjectRoot(name:string):Promise<string>{const r=await loadRegistry();if(!r.projects[name])throw new Error(`Project ${name} not found`);return r.projects[name]}
 
-export async function getProjectConfigByRoot(root: string): Promise<{ database: 'mariadb' | 'postgres'; databaseVersion: string; name: string }> {
+export async function getProjectConfigByRoot(root: string): Promise<{ database: 'mariadb' | 'mysql' | 'postgres'; databaseVersion: string; name: string }> {
   const config = await readConfig(root)
   return { database: config.database, databaseVersion: config.databaseVersion, name: config.name }
 }

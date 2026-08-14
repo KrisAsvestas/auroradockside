@@ -88,7 +88,7 @@ export interface AuroraStackOptions {
   phpVersion: string
   nodeVersion: string
   webServer: 'nginx' | 'apache'
-  database: 'mariadb' | 'postgres'
+  database: 'mariadb' | 'mysql' | 'postgres'
   databaseVersion: string
   adminer: boolean
   redis: boolean
@@ -143,7 +143,7 @@ export interface AuroraModuleManifest {
   settings: AuroraModuleSetting[]
   aurora: { core: string; moduleApi: string }
   creation?: {
-    databases?: Array<'mariadb' | 'postgres'>
+    databases?: Array<'mariadb' | 'mysql' | 'postgres'>
     setup?: AuroraModuleSetting[]
     intro?: { title: string; description: string; icon?: string }
   }

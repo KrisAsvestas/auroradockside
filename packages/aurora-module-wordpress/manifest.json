@@ -1,7 +1,7 @@
 {
   "id": "wordpress",
   "name": "WordPress",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "category": "application",
   "description": "WordPress CMS provisioning and WP-CLI tooling.",
   "main": "main/index.cjs",
@@ -11,7 +11,7 @@
   "defaults": { "docroot": "" },
   "settings": [],
   "creation": {
-    "databases": ["mariadb"],
+    "databases": ["mariadb", "mysql"],
     "intro": { "title": "WordPress install", "description": "Core downloads automatically and the project starts for setup.", "icon": "globe" },
     "setup": [
       { "id": "title", "label": "Site title", "type": "text", "default": "", "placeholder": "My WordPress Site", "icon": "title", "span": 2 },

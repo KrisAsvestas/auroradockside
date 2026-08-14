@@ -16,18 +16,23 @@ function safeSnapshotName(value?: string): string {
   return safe || fallback
 }
 
-function dbCommand(type: 'mariadb' | 'postgres', mode: 'dump' | 'restore'): { command: string; args: string[] } {
+function dbCommand(type: 'mariadb' | 'mysql' | 'postgres', mode: 'dump' | 'restore'): { command: string; args: string[] } {
   if (type === 'postgres') {
     return mode === 'dump'
       ? { command: 'pg_dump', args: ['-U', 'db', '-d', 'db', '--clean', '--if-exists'] }
       : { command: 'psql', args: ['-U', 'db', '-d', 'db', '-v', 'ON_ERROR_STOP=1'] }
+  }
+  if (type === 'mysql') {
+    return mode === 'dump'
+      ? { command: 'mysqldump', args: ['-udb', '-pdb', '--single-transaction', '--routines', '--triggers', 'db'] }
+      : { command: 'mysql', args: ['-udb', '-pdb', 'db'] }
   }
   return mode === 'dump'
     ? { command: 'mariadb-dump', args: ['-udb', '-pdb', '--single-transaction', '--routines', '--triggers', 'db'] }
     : { command: 'mariadb', args: ['-udb', '-pdb', 'db'] }
 }
 
-function runDatabasePipe(root: string, type: 'mariadb' | 'postgres', mode: 'dump' | 'restore', filePath: string): Promise<void> {
+function runDatabasePipe(root: string, type: 'mariadb' | 'mysql' | 'postgres', mode: 'dump' | 'restore', filePath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const db = dbCommand(type, mode)
     const child = spawn('docker', ['compose', '-f', composeFile(root), 'exec', '-T', 'db', db.command, ...db.args], {
