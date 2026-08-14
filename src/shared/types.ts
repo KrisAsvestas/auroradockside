@@ -69,8 +69,7 @@ export interface AuroraProjectDetail extends AuroraProjectSummary {
   ca_trust_status?: 'trusted' | 'not-trusted' | 'unknown'
   firefox_trust_status?: 'trusted' | 'not-trusted' | 'unavailable' | 'unknown'
   chromium_trust_status?: 'trusted' | 'not-trusted' | 'unavailable' | 'unknown'
-  wordpress_multisite?: 'none' | 'subdirectory' | 'subdomain'
-  wordpress_network_admin_url?: string
+  module_metadata?: Record<string, string | number | boolean>
   adminer_url?: string
   services: Record<string, AuroraService>
   xdebug_enabled: boolean
@@ -150,6 +149,18 @@ export interface AuroraModuleManifest {
   hooks?: Partial<Record<AuroraModuleLifecycleHook, AuroraModuleCommand[]>>
   project?: {
     adminPath?: string
+    actions?: Array<{
+      id: string
+      label: string
+      path: string
+      metadataKey?: string
+      hiddenValues?: Array<string | number | boolean>
+    }>
+    summary?: {
+      metadataKey: string
+      labels: Record<string, string>
+      fallback?: string
+    }
     tools?: Array<{ id: string; label: string; hook: AuroraModuleLifecycleHook }>
   }
   compose?: {

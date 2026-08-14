@@ -1,5 +1,5 @@
-import { mkdtemp, mkdir, symlink, writeFile } from 'fs/promises'
-import { join } from 'path'
+import { mkdtemp, mkdir, readFile, symlink, writeFile } from 'fs/promises'
+import { join, resolve } from 'path'
 import { tmpdir } from 'os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -29,6 +29,9 @@ describe('external module registry', () => {
   it('rejects invalid and incompatible manifests', () => {
     expect(() => validateModuleManifest({ ...manifest, id: '../escape' })).toThrow(/module id/)
     expect(() => validateModuleManifest({ ...manifest, aurora: { core: '9.0.0', moduleApi: '1.0.0' } })).toThrow(/requires Aurora Core/)
+    expect(() => validateModuleManifest({ ...manifest, main: '../outside.cjs' })).toThrow(/may not leave/)
+    expect(() => validateModuleManifest({ ...manifest, dependencies: ['../escape'] })).toThrow(/module id array/)
+    expect(() => validateModuleManifest({ ...manifest, project: { adminPath: 'admin' } })).toThrow(/must start with/)
   })
   it('rejects symbolic links in package paths', async () => {
     const userData = await temp('aurora-user-'); const source = await packageDir(); await mkdir(join(source, 'main')); await symlink('/tmp', join(source, 'main', 'escape'))
@@ -38,5 +41,28 @@ describe('external module registry', () => {
     const userData = await temp('aurora-user-'); const source = await packageDir(); await installModulePackage(source, userData); await uninstallModulePackage('sample-app', userData)
     expect(await getModuleRegistry(userData)).toEqual([])
     expect(await import('fs/promises').then(({ stat }) => stat(join(source, 'manifest.json')))).toBeTruthy()
+  })
+
+  it('updates an installed package atomically at the same registry id', async () => {
+    const userData = await temp('aurora-user-')
+    await installModulePackage(await packageDir(), userData)
+    await installModulePackage(await packageDir({ ...manifest, version: '1.1.0' }), userData)
+    expect((await getModuleRegistry(userData)).map((item) => item.version)).toEqual(['1.1.0'])
+  })
+
+  it('uninstalls only the package and preserves existing project data', async () => {
+    const userData = await temp('aurora-user-')
+    const project = await temp('aurora-project-')
+    const sentinel = join(project, 'site-content.txt')
+    await writeFile(sentinel, 'keep me')
+    await installModulePackage(await packageDir(), userData)
+    await uninstallModulePackage('sample-app', userData)
+    expect(await readFile(sentinel, 'utf8')).toBe('keep me')
+  })
+
+  it('accepts the independently packaged WordPress module contract', async () => {
+    const packageRoot = resolve(process.cwd(), 'packages/aurora-module-wordpress')
+    const actual = JSON.parse(await readFile(join(packageRoot, 'manifest.json'), 'utf8'))
+    expect(validateModuleManifest(actual).id).toBe('wordpress')
   })
 })

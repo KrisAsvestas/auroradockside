@@ -165,6 +165,17 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
       : PHP_VERSIONS
 
   const currentDatabase = `${project.dbinfo.database_type}:${project.dbinfo.database_version}`
+  const projectContribution = applicationManifest?.project
+  const summaryContribution = projectContribution?.summary
+  const summaryValue = summaryContribution ? project.module_metadata?.[summaryContribution.metadataKey] : undefined
+  const projectSummary = summaryContribution
+    ? summaryContribution.labels[String(summaryValue ?? '')] ?? summaryContribution.fallback
+    : undefined
+  const projectActions = (projectContribution?.actions ?? []).filter((action) => {
+    if (!action.metadataKey) return true
+    const value = project.module_metadata?.[action.metadataKey]
+    return !(action.hiddenValues ?? []).includes(value ?? '')
+  })
   const allowedDatabaseOptions = applicationManifest?.creation?.databases?.length ? DATABASE_OPTIONS.filter((option) => applicationManifest.creation?.databases?.some((database) => option.value.startsWith(`${database}:`))) : DATABASE_OPTIONS
   const databaseOptions = allowedDatabaseOptions.some((o) => o.value === currentDatabase)
     ? DATABASE_OPTIONS
@@ -178,6 +189,12 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-6">
+      {project.module_available === false && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+          <p className="font-semibold">Required application module is missing</p>
+          <p className="mt-1">Install <span className="font-mono">{project.missing_module_id ?? project.type}</span> from Modules to restore application-specific setup and tools. Existing project files and databases have not been changed.</p>
+        </div>
+      )}
       <header className="overflow-hidden rounded-2xl border border-cyan-200/80 bg-gradient-to-br from-white via-slate-50 to-cyan-50 text-neutral-950 shadow-[0_20px_55px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-neutral-950 dark:bg-none dark:text-white dark:shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
         <div className="relative p-5">
           <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.07)_1px,transparent_1px)] bg-[size:36px_36px] dark:bg-[linear-gradient(rgba(45,212,191,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(45,212,191,0.09)_1px,transparent_1px)]" />
@@ -237,11 +254,11 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
                   <KeyRound size={14} /> Application Admin
                 </a>
               )}
-              {applicationManifest?.project?.adminPath && isRunning && project.wordpress_network_admin_url && (
-                <a href={project.wordpress_network_admin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/[0.15]">
-                  <Globe2 size={14} /> Network Admin
+              {isRunning && projectActions.map((action) => (
+                <a key={action.id} href={`${project.primary_url.replace(/\/$/, '')}${action.path}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/[0.15]">
+                  <Globe2 size={14} /> {action.label}
                 </a>
-              )}
+              ))}
               <button
                 type="button"
                 disabled={isBusy}
@@ -258,7 +275,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
               <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 Project type
               </p>
-              <p className="mt-1 truncate text-sm font-semibold text-neutral-900 dark:text-white">{applicationManifest?.name ?? project.type}</p>{applicationManifest?.project?.adminPath && <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">{project.wordpress_multisite === 'subdomain' ? 'Multisite · Subdomain' : project.wordpress_multisite === 'subdirectory' ? 'Multisite · Subdirectory' : 'Single site'}</p>}
+              <p className="mt-1 truncate text-sm font-semibold text-neutral-900 dark:text-white">{applicationManifest?.name ?? project.type}</p>{projectSummary && <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">{projectSummary}</p>}
             </div>
 
             <div className="rounded-xl border border-neutral-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.08]">
@@ -368,7 +385,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200/70 pt-3 dark:border-white/10">
             <div>
               <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">Primary protocol</p>
-              <p className="text-[11px] text-neutral-500">Both remain available. WordPress canonical URLs follow this setting.</p>
+              <p className="text-[11px] text-neutral-500">Both remain available. The application’s canonical URL follows this setting when supported by its module.</p>
             </div>
             <div className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100 p-1 dark:border-white/10 dark:bg-white/5">
               {(['http','https'] as const).map((protocol) => { const active = project.primary_url.startsWith(`${protocol}:`); return <button key={protocol} type="button" disabled={isEnvUpdating || !isRunning} onClick={() => void applyEnvironmentChange({ primaryProtocol: protocol })} className={clsx('rounded-md px-3 py-1.5 text-xs font-semibold uppercase transition disabled:cursor-not-allowed disabled:opacity-50', active ? 'bg-white text-cyan-700 shadow-sm dark:bg-neutral-800 dark:text-cyan-300' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white')}>{protocol}</button> })}

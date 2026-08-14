@@ -23,5 +23,25 @@
       { "id": "wp_debug", "label": "Enable WP_DEBUG", "type": "boolean", "default": true, "advanced": true }
     ]
   },
-  "project": { "adminPath": "/wp-admin/" }
+  "project": {
+    "adminPath": "/wp-admin/",
+    "actions": [
+      {
+        "id": "network-admin",
+        "label": "Network Admin",
+        "path": "/wp-admin/network/",
+        "metadataKey": "multisite",
+        "hiddenValues": ["none", ""]
+      }
+    ],
+    "summary": {
+      "metadataKey": "multisite",
+      "labels": {
+        "none": "Single site",
+        "subdirectory": "Multisite · Subdirectory",
+        "subdomain": "Multisite · Subdomain"
+      },
+      "fallback": "Single site"
+    }
+  }
 }

@@ -25,6 +25,12 @@ function validateSettings(value: unknown, field: string): asserts value is Auror
   }
 }
 
+function validateRelativePackagePath(value: unknown, field: string): void {
+  if (typeof value !== 'string' || !value.trim() || isAbsolute(value)) throw new Error(`${field} must be a relative package path`)
+  const normalized = value.replace(/\\/g, '/')
+  if (normalized.split('/').some((part) => part === '..')) throw new Error(`${field} may not leave the module package`)
+}
+
 export function validateModuleManifest(value: unknown): AuroraModuleManifest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Module manifest must be an object')
   const m = value as Record<string, unknown>
@@ -33,13 +39,28 @@ export function validateModuleManifest(value: unknown): AuroraModuleManifest {
   if (!validVersion(m.version)) throw new Error('Invalid module version')
   if (!['application', 'service', 'tool'].includes(String(m.category))) throw new Error('Invalid module category')
   if (typeof m.description !== 'string') throw new Error('Invalid module description')
-  for (const field of ['dependencies', 'conflicts'] as const) if (!Array.isArray(m[field]) || !(m[field] as unknown[]).every((x) => typeof x === 'string')) throw new Error(`${field} must be a string array`)
+  for (const field of ['dependencies', 'conflicts'] as const) if (!Array.isArray(m[field]) || !(m[field] as unknown[]).every((x) => typeof x === 'string' && /^[a-z][a-z0-9-]{1,63}$/.test(x))) throw new Error(`${field} must be a module id array`)
   validateSettings(m.settings, 'settings')
   const aurora = m.aurora as Record<string, unknown> | undefined
   if (!aurora || typeof aurora.core !== 'string' || typeof aurora.moduleApi !== 'string') throw new Error('Manifest must declare aurora.core and aurora.moduleApi')
   if (!compatible(aurora.core, CORE_VERSION)) throw new Error(`Module requires Aurora Core '${aurora.core}', running '${CORE_VERSION}'`)
   if (!compatible(aurora.moduleApi, MODULE_API_VERSION)) throw new Error(`Module API '${aurora.moduleApi}' is incompatible with '${MODULE_API_VERSION}'`)
+  if (m.main !== undefined) validateRelativePackagePath(m.main, 'main')
   if (m.creation && typeof m.creation === 'object') validateSettings((m.creation as Record<string, unknown>).setup ?? [], 'creation.setup')
+  if (m.project !== undefined) {
+    if (!m.project || typeof m.project !== 'object' || Array.isArray(m.project)) throw new Error('project must be an object')
+    const project = m.project as Record<string, unknown>
+    if (project.adminPath !== undefined && (typeof project.adminPath !== 'string' || !project.adminPath.startsWith('/'))) throw new Error('project.adminPath must start with /')
+    if (project.actions !== undefined) {
+      if (!Array.isArray(project.actions)) throw new Error('project.actions must be an array')
+      for (const actionValue of project.actions) {
+        const action = actionValue as Record<string, unknown>
+        if (!action || typeof action !== 'object' || typeof action.id !== 'string' || typeof action.label !== 'string' || typeof action.path !== 'string' || !action.path.startsWith('/')) throw new Error('Invalid project action')
+        if (action.metadataKey !== undefined && typeof action.metadataKey !== 'string') throw new Error('Invalid project action metadataKey')
+        if (action.hiddenValues !== undefined && !Array.isArray(action.hiddenValues)) throw new Error('Invalid project action hiddenValues')
+      }
+    }
+  }
   return value as AuroraModuleManifest
 }
 

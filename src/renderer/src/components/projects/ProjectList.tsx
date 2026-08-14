@@ -68,7 +68,7 @@ export function ProjectList(): React.JSX.Element {
               <StatusBadge status={project.status} />
             </div>
             <span className="truncate text-xs text-neutral-500 dark:text-neutral-400">
-              {project.type} · {project.shortroot}
+              {project.module_available === false ? project.status_desc : `${project.type} · ${project.shortroot}`}
             </span>
           </button>
         </li>

@@ -235,9 +235,8 @@ export async function describeProject(name: string): Promise<AuroraProjectDetail
   const reg = await loadRegistry(); const root = reg.projects[name]; if (!root) throw new Error(`Aurora project '${name}' not found`)
   const c = await readConfig(root); const ps = await composeJson(root); const running = ps.length > 0 && ps.every(p=>p.State==='running'); const currentRouterStatus = await routerStatus(); const urlSet=projectUrls(c.name); const primary=c.primaryProtocol === 'http' ? urlSet.http : urlSet.https
   const services: Record<string, any> = {}; for (const p of ps) services[p.Service]={short_name:p.Service,full_name:p.Name,status:p.State,image:p.Image,exposed_ports:'',host_ports:'',host_ports_mapping:[]}
-  const legacyMultisite = c.wordpressMultisite ?? 'none'
-  const moduleMultisite = String(c.moduleMetadata?.multisite ?? legacyMultisite) as 'none' | 'subdirectory' | 'subdomain'
-  return { name,status:running?'running':'stopped',status_desc:running?'Running':'Stopped',type:c.type,approot:root,shortroot:root,docroot:c.docroot,primary_url:primary,httpurl:urlSet.http,httpsurl:urlSet.https,mutagen_enabled:false,database_type:c.database,database_version:c.databaseVersion,dbinfo:{database_type:c.database,database_version:c.databaseVersion,dbPort:c.database==='postgres'?'5432':'3306',dbname:'db',host:'db',password:'db',published_port:0,username:'db'},hostname:projectHost(c.name),hostnames:[projectHost(c.name)],httpURLs:[urlSet.http],httpsURLs:[urlSet.https],urls:[urlSet.http,urlSet.https],php_version:c.php,nodejs_version:c.node,webserver_type:c.webserver,router:'file',router_status:currentRouterStatus,certificate_status:await certificateStatus(c.name),ca_trust_status:await caTrustStatus(),firefox_trust_status:await firefoxTrustStatus(),chromium_trust_status:await chromiumTrustStatus(),wordpress_multisite:moduleMultisite,wordpress_network_admin_url:moduleMultisite!=='none'?`${primary.replace(/\/$/,'')}/wp-admin/network/`:undefined,adminer_url:c.modules.includes('adminer')?`https://adminer.${projectHost(c.name)}`:undefined,services,xdebug_enabled:c.xdebug===true }
+  const moduleMetadata = { ...(c.wordpressMultisite ? { multisite: c.wordpressMultisite } : {}), ...c.moduleMetadata }
+  return { name,status:running?'running':'stopped',status_desc:running?'Running':'Stopped',type:c.type,approot:root,shortroot:root,docroot:c.docroot,primary_url:primary,httpurl:urlSet.http,httpsurl:urlSet.https,mutagen_enabled:false,database_type:c.database,database_version:c.databaseVersion,dbinfo:{database_type:c.database,database_version:c.databaseVersion,dbPort:c.database==='postgres'?'5432':'3306',dbname:'db',host:'db',password:'db',published_port:0,username:'db'},hostname:projectHost(c.name),hostnames:[projectHost(c.name)],httpURLs:[urlSet.http],httpsURLs:[urlSet.https],urls:[urlSet.http,urlSet.https],php_version:c.php,nodejs_version:c.node,webserver_type:c.webserver,router:'file',router_status:currentRouterStatus,certificate_status:await certificateStatus(c.name),ca_trust_status:await caTrustStatus(),firefox_trust_status:await firefoxTrustStatus(),chromium_trust_status:await chromiumTrustStatus(),module_metadata:moduleMetadata,adminer_url:c.modules.includes('adminer')?`https://adminer.${projectHost(c.name)}`:undefined,services,xdebug_enabled:c.xdebug===true }
 }
 export async function updateEnvironment(root:string, updates:{phpVersion?:string;nodeVersion?:string;webserverType?:string;database?:string;xdebugEnabled?:boolean;primaryProtocol?:'http'|'https'}):Promise<void>{
   const c=await readConfig(root)
@@ -252,12 +251,6 @@ export async function updateEnvironment(root:string, updates:{phpVersion?:string
 }
 
 export async function getProjectConfig(root: string): Promise<AuroraConfig> { return readConfig(root) }
-
-export async function setWordpressMultisite(root: string, mode: 'none' | 'subdirectory' | 'subdomain'): Promise<void> {
-  const config = await readConfig(root)
-  config.wordpressMultisite = mode
-  await writeConfig(root, config)
-}
 
 export async function setProjectModuleMetadata(root: string, metadata: Record<string, string | number | boolean>): Promise<void> {
   const config = await readConfig(root)

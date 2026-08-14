@@ -83,7 +83,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
       return
     }
 
-    // Post-create (starting the project, downloading/installing WordPress,
+    // Module post-create hooks (starting services, provisioning an application,
     // etc.) can run long. Close the modal as soon as the quick `Aurora
     // config` step succeeds instead of blocking the whole wizard on it —
     // the terminal panel already tracks and surfaces this operation's
