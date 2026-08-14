@@ -75,7 +75,7 @@ const DATABASE_OPTIONS = [
 ]
 
 const heroFieldClass =
-  'w-full rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-sm font-semibold text-white transition hover:border-cyan-300/40 hover:bg-white/10 focus:border-cyan-300/60 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50'
+  'w-full rounded-lg border border-neutral-200 bg-white/90 px-2.5 py-1.5 text-sm font-semibold text-neutral-900 shadow-sm transition hover:border-cyan-300 focus:border-cyan-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:border-cyan-300/40 dark:hover:bg-white/10'
 
 export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
   const { data: project, isLoading, isError, error } = useProjectDetail(name)
@@ -179,13 +179,13 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-6">
-      <header className="overflow-hidden rounded-2xl border border-white/70 bg-neutral-950 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] dark:border-white/10">
+      <header className="overflow-hidden rounded-2xl border border-cyan-200/80 bg-gradient-to-br from-white via-slate-50 to-cyan-50 text-neutral-950 shadow-[0_20px_55px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
         <div className="relative p-5">
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(45,212,191,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(45,212,191,0.09)_1px,transparent_1px)] bg-[size:36px_36px]" />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-cyan-500/10 to-transparent" />
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.07)_1px,transparent_1px)] bg-[size:36px_36px] dark:bg-[linear-gradient(rgba(45,212,191,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(45,212,191,0.09)_1px,transparent_1px)]" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-cyan-200/30 to-transparent dark:from-cyan-500/10" />
           <div className="relative flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-cyan-100">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/80 px-3 py-1 text-xs font-semibold text-cyan-800 shadow-sm dark:border-white/10 dark:bg-white/10 dark:text-cyan-100">
                 <Gauge size={13} />
                 {runningServices} of {services.length} services running
               </div>
@@ -193,7 +193,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
                 <h2 className="truncate text-3xl font-semibold">{project.name}</h2>
                 <StatusBadge status={project.status} />
               </div>
-              <p className="mt-2 max-w-3xl truncate text-sm text-neutral-300">{project.approot}</p>
+              <p className="mt-2 max-w-3xl truncate text-sm text-neutral-500 dark:text-neutral-300">{project.approot}</p>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               <button
@@ -208,7 +208,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
                 type="button"
                 disabled={!isRunning || isBusy}
                 onClick={() => stopProject.mutate(project.name)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/10 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/[0.15] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/[0.15]"
               >
                 <Square size={14} /> Stop
               </button>
@@ -224,7 +224,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
                 type="button"
                 disabled={!isRunning}
                 onClick={() => setIsLogsOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/10 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/[0.15] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/[0.15]"
               >
                 <FileText size={14} /> Logs
               </button>
@@ -233,13 +233,13 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
                   href={`${project.primary_url.replace(/\/$/, '')}${applicationManifest.project.adminPath}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/10 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/[0.15]"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/[0.15]"
                 >
                   <KeyRound size={14} /> Application Admin
                 </a>
               )}
               {applicationManifest?.project?.adminPath && isRunning && project.wordpress_network_admin_url && (
-                <a href={project.wordpress_network_admin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/10 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/[0.15]">
+                <a href={project.wordpress_network_admin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/[0.15]">
                   <Globe2 size={14} /> Network Admin
                 </a>
               )}
@@ -247,24 +247,24 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
                 type="button"
                 disabled={isBusy}
                 onClick={() => setIsDeleteOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-red-300/20 bg-red-400/10 px-3 py-1.5 text-sm font-medium text-red-100 transition hover:bg-red-400/[0.15] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50/80 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-300/20 dark:bg-red-400/10 dark:text-red-100 dark:hover:bg-red-400/[0.15]"
               >
                 <Trash2 size={14} /> Delete
               </button>
             </div>
           </div>
           <div className="relative mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
-              <Boxes size={17} className="mb-3 text-cyan-200" />
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+            <div className="rounded-xl border border-neutral-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.08]">
+              <Boxes size={17} className="mb-3 text-cyan-600 dark:text-cyan-200" />
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 Project type
               </p>
-              <p className="mt-1 truncate text-sm font-semibold text-white">{applicationManifest?.name ?? project.type}</p>{applicationManifest?.project?.adminPath && <p className="mt-1 text-[11px] text-neutral-400">{project.wordpress_multisite === 'subdomain' ? 'Multisite · Subdomain' : project.wordpress_multisite === 'subdirectory' ? 'Multisite · Subdirectory' : 'Single site'}</p>}
+              <p className="mt-1 truncate text-sm font-semibold text-neutral-900 dark:text-white">{applicationManifest?.name ?? project.type}</p>{applicationManifest?.project?.adminPath && <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">{project.wordpress_multisite === 'subdomain' ? 'Multisite · Subdomain' : project.wordpress_multisite === 'subdirectory' ? 'Multisite · Subdirectory' : 'Single site'}</p>}
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
-              <Code2 size={17} className="mb-3 text-cyan-200" />
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            <div className="rounded-xl border border-neutral-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.08]">
+              <Code2 size={17} className="mb-3 text-cyan-600 dark:text-cyan-200" />
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 PHP
               </p>
               <select
@@ -281,17 +281,17 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
               </select>
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
-              <Code2 size={17} className="mb-3 text-cyan-200" />
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-400">Node.js</p>
+            <div className="rounded-xl border border-neutral-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.08]">
+              <Code2 size={17} className="mb-3 text-cyan-600 dark:text-cyan-200" />
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Node.js</p>
               <select value={project.nodejs_version ?? '24'} disabled={isEnvUpdating} onChange={(e) => void applyEnvironmentChange({ nodeVersion: e.target.value })} className={heroFieldClass}>
                 {NODE_VERSIONS.map((v) => <option key={v} value={v} className="text-neutral-900">{v}</option>)}
               </select>
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
-              <Server size={17} className="mb-3 text-cyan-200" />
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            <div className="rounded-xl border border-neutral-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.08]">
+              <Server size={17} className="mb-3 text-cyan-600 dark:text-cyan-200" />
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 Web server
               </p>
               <select
@@ -308,9 +308,9 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
               </select>
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
+            <div className="rounded-xl border border-neutral-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.08]">
               <div className="mb-3 flex items-center justify-between">
-                <Zap size={17} className="text-cyan-200" />
+                <Zap size={17} className="text-cyan-600 dark:text-cyan-200" />
                 <button
                   type="button"
                   role="switch"
@@ -322,7 +322,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
                   }
                   className={clsx(
                     'relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-50',
-                    project.xdebug_enabled ? 'bg-cyan-400' : 'bg-white/15'
+                    project.xdebug_enabled ? 'bg-cyan-500' : 'bg-neutral-300 dark:bg-white/15'
                   )}
                 >
                   <span
@@ -333,8 +333,8 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
                   />
                 </button>
               </div>
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Xdebug</p>
-              <p className="mt-1 truncate text-sm font-semibold text-white">
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Xdebug</p>
+              <p className="mt-1 truncate text-sm font-semibold text-neutral-900 dark:text-white">
                 {project.xdebug_enabled ? 'Enabled' : 'Off'}
               </p>
             </div>
@@ -343,7 +343,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
       </header>
 
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <section className="rounded-xl border border-white/70 bg-white/[0.78] p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/[0.55]">
+        <section className="rounded-xl border border-neutral-200/90 bg-white/90 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/[0.55]">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400"><Globe2 size={14} className="text-cyan-600 dark:text-cyan-300" /> Site URLs</h3>
             <span className={clsx(
@@ -388,7 +388,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
           </div>
         </section>
 
-        <section className="rounded-xl border border-white/70 bg-white/[0.78] p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/[0.55]">
+        <section className="rounded-xl border border-neutral-200/90 bg-white/90 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/[0.55]">
           <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
             <Database size={14} className="text-cyan-600 dark:text-cyan-300" />
             Database credentials
@@ -422,7 +422,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
       </div>
 
       {applicationManifest?.project?.adminPath && siteCredentials && (
-        <section className="rounded-xl border border-white/70 bg-white/[0.78] p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/[0.55]">
+        <section className="rounded-xl border border-neutral-200/90 bg-white/90 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/[0.55]">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
               <KeyRound size={14} className="text-cyan-600 dark:text-cyan-300" />
@@ -447,7 +447,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
 
       {isRunning && <DeveloperServices project={project} />}
 
-      <section className="rounded-xl border border-white/70 bg-white/[0.78] p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/[0.55]">
+      <section className="rounded-xl border border-neutral-200/90 bg-white/90 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/[0.55]">
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
           Services
         </h3>

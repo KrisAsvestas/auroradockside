@@ -27,7 +27,7 @@ function App(): React.JSX.Element {
   })
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-[linear-gradient(135deg,rgba(8,145,178,0.12)_0%,transparent_36%),linear-gradient(180deg,#f8fafc_0%,#eef6f5_52%,#e7eef5_100%)] text-neutral-900 dark:bg-[linear-gradient(135deg,rgba(45,212,191,0.10)_0%,transparent_36%),linear-gradient(180deg,#070a0f_0%,#0f172a_54%,#092f34_100%)] dark:text-neutral-100">
+    <div className="flex h-screen w-screen flex-col bg-[radial-gradient(circle_at_18%_0%,rgba(6,182,212,0.10),transparent_32%),linear-gradient(180deg,#f8fafc_0%,#f1f5f6_58%,#e9f0f2_100%)] text-neutral-900 dark:bg-[linear-gradient(135deg,rgba(45,212,191,0.10)_0%,transparent_36%),linear-gradient(180deg,#070a0f_0%,#0f172a_54%,#092f34_100%)] dark:text-neutral-100">
       <div className="flex flex-1 overflow-hidden">
         <aside className="flex w-80 flex-shrink-0 flex-col border-r border-white/70 bg-white/[0.78] shadow-[8px_0_30px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/[0.72] dark:shadow-black/25">
           <div className="flex items-center justify-between border-b border-neutral-200/70 px-4 py-3 dark:border-white/10">
