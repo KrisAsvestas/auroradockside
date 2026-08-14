@@ -13,6 +13,7 @@
 - Package manifests are validated for identity, version, category, dependencies, conflicts, settings, Core/API compatibility, project contributions, and safe relative entry paths.
 - Native `.pac` files are ZIP-compressed Aurora packages with `manifest.json` at archive root.
 - A `.pac` placed beside the AppImage or in its `modules` folder is discovered automatically and appears in the Modules screen.
+- Packaged applications also carry a generated `.pac` catalog in their application resources. The macOS DMG layout exposes the same catalog as an **Aurora Modules** folder while the copied `.app` retains its own embedded catalog after the DMG is ejected.
 - Linux packages use Aurora's 512×512 application icon and a synchronized `aurora-dockside` desktop filename, executable name, icon name, and `StartupWMClass`.
 - `.pac` inspection rejects encrypted entries, symbolic links, path traversal, absolute/drive paths, excessive entry counts, and expanded archives larger than 256 MiB before extraction.
 - Installation uses staging plus rollback-safe replacement, so a failed update preserves the currently installed module.
@@ -45,7 +46,7 @@ npm run build
 npx electron-builder --linux AppImage
 ```
 
-Automated result: 6 test files and 26 tests passed. Coverage includes:
+Automated result: 6 test files and 27 tests passed. Coverage includes:
 
 - Empty registry
 - Available local packages
@@ -78,7 +79,7 @@ Live project smoke result for project `24`:
 SHA-256:
 
 ```text
-faafa9555072e8de98db1ee65cf329804c0eb37d44cd3bf4e6b50c5216f9f6e6  aurora-dockside-2.0.0-alpha.24.AppImage
+ad679c904204b7f8db52b209231a08eea6ba1baf34dd3f24eae90ffcdfae7e56  aurora-dockside-2.0.0-alpha.24.AppImage
 d2165af4b75ab888c6d35a750a449205123866231ba5e98e1cbe9bcaa8738f46  aurora-module-wordpress-1.2.0.pac
 ```
 
@@ -86,3 +87,4 @@ d2165af4b75ab888c6d35a750a449205123866231ba5e98e1cbe9bcaa8738f46  aurora-module-
 
 - Clean-registry install/remove behavior was exercised through the real registry implementation in automated temporary-directory tests. The live GUI smoke used the already installed local WordPress package and project `24`.
 - AppImage systems without working FUSE can use `--appimage-extract` and launch `squashfs-root/AppRun --no-sandbox`.
+- The embedded catalog and DMG layout are configured and the identical Linux application-resource layout was verified. A final signed/notarized `.app` and DMG must be built and inspected on macOS or a macOS CI runner.

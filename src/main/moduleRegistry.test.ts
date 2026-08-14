@@ -51,6 +51,21 @@ describe('external module registry', () => {
     expect((await getAvailableModulePackages()).map((item) => item.manifest.id)).toContain('sample-app')
     delete process.env.APPIMAGE
   })
+  it('discovers a .pac embedded in the packaged application resources', async () => {
+    const resources = await temp('aurora-resources-')
+    const catalog = join(resources, 'module-catalog')
+    await mkdir(catalog)
+    const pac = await pacFile()
+    await import('fs/promises').then(({ copyFile }) => copyFile(pac, join(catalog, 'sample-app.pac')))
+    const previous = Object.getOwnPropertyDescriptor(process, 'resourcesPath')
+    Object.defineProperty(process, 'resourcesPath', { value: resources, configurable: true })
+    try {
+      expect((await getAvailableModulePackages()).map((item) => item.manifest.id)).toContain('sample-app')
+    } finally {
+      if (previous) Object.defineProperty(process, 'resourcesPath', previous)
+      else Reflect.deleteProperty(process, 'resourcesPath')
+    }
+  })
   it('installs a valid local package and refreshes after install', async () => {
     const userData = await temp('aurora-user-'); const source = await packageDir()
     await installModulePackage(source, userData)

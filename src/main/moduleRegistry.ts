@@ -165,7 +165,10 @@ function catalogDirectories(): string[] {
   const besideImage = process.env.APPIMAGE
     ? [dirname(process.env.APPIMAGE), join(dirname(process.env.APPIMAGE), 'modules')]
     : []
-  return [...configured, ...besideImage, join(process.cwd(), 'modules'), join(process.cwd(), 'packages'), join(app.getAppPath(), 'packages')]
+  const embedded = typeof process.resourcesPath === 'string'
+    ? [join(process.resourcesPath, 'module-catalog')]
+    : []
+  return [...configured, ...besideImage, ...embedded, join(process.cwd(), 'modules'), join(process.cwd(), 'packages'), join(app.getAppPath(), 'packages')]
 }
 
 export async function getAvailableModulePackages(): Promise<AuroraAvailableModule[]> {

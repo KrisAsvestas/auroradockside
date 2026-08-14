@@ -1,5 +1,6 @@
 appId: com.aurora-dockside.app
 productName: Aurora Dockside
+beforePack: scripts/package-modules.cjs
 directories:
   buildResources: build
 files:
@@ -11,6 +12,11 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+extraResources:
+  - from: dist/module-catalog
+    to: module-catalog
+    filter:
+      - '*.pac'
 win:
   executableName: aurora-dockside
 nsis:
@@ -23,6 +29,18 @@ mac:
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+    - x: 270
+      y: 110
+      type: dir
+      name: Aurora Modules
+      path: dist/module-catalog
 linux:
   executableName: aurora-dockside
   icon: resources/icon.png
