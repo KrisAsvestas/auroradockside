@@ -2,6 +2,8 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { ChevronDown, ChevronUp, Eye, EyeOff, Globe2, KeyRound, Mail, RefreshCw, Settings2, Type, UserRound } from 'lucide-react'
 import type { AuroraModuleManifest, AuroraModuleSetting } from '@shared/types'
 import type { TypeSetupHandle, TypeSetupProps } from './shared'
+import { useTerminalStore } from '../../../stores/terminalStore'
+import { useStatusStore } from '../../../stores/statusStore'
 
 const inputClass = 'w-full rounded-lg border border-neutral-300 bg-white/80 px-3 py-2 text-sm shadow-sm transition placeholder:text-neutral-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/15 dark:border-white/10 dark:bg-neutral-950/70 dark:placeholder:text-neutral-600'
 const labelClass = 'mb-1.5 block text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400'
@@ -21,7 +23,13 @@ export const ExternalModuleSetup = forwardRef<TypeSetupHandle, TypeSetupProps & 
     const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set())
     const valid = fields.every((field) => !field.required || String(values[field.id] ?? '').trim().length > 0)
     useEffect(() => onValidityChange(valid), [valid, onValidityChange])
-    useImperativeHandle(ref, () => ({ runPostCreate: async ({ directory }) => window.api.create.runModuleProjectCreate(crypto.randomUUID(), module.id, directory, projectName, values) }), [module.id, projectName, values])
+    useImperativeHandle(ref, () => ({ runPostCreate: async ({ directory }) => {
+      const operationId = crypto.randomUUID()
+      const label = `Install ${module.name} for ${projectName}`
+      useTerminalStore.getState().startOperation(operationId, label)
+      useStatusStore.getState().begin(operationId, label)
+      await window.api.create.runModuleProjectCreate(operationId, module.id, directory, projectName, values)
+    } }), [module.id, module.name, projectName, values])
 
     function fieldControl(field: AuroraModuleSetting): React.JSX.Element {
       if (field.type === 'boolean') return <label className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white/70 px-3 py-2 text-sm font-medium dark:border-white/10 dark:bg-neutral-950/50"><input type="checkbox" checked={Boolean(values[field.id])} onChange={(event) => setValues({ ...values, [field.id]: event.target.checked })}/>{field.label}</label>

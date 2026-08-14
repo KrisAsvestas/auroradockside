@@ -19,15 +19,20 @@ export async function runModuleProjectCreate(moduleId: string, operationId: stri
   if (typeof loaded.projectCreate !== 'function') return
   const config = await getProjectConfigByRoot(directory)
   const urls = projectUrls(config.name)
-  await loaded.projectCreate(Object.freeze({
+  try { await loaded.projectCreate(Object.freeze({
     moduleId,
     directory,
     projectName,
     settings: Object.freeze({ ...settings }),
     urls: Object.freeze(urls),
-    run: (suffix: string, command: string, args: string[]) => runCommandStreamed(`${operationId}-${suffix}`, command, args, sender, { cwd: directory }),
+    run: (_suffix: string, command: string, args: string[]) => runCommandStreamed(operationId, command, args, sender, { cwd: directory, emitExit: false }),
     ensureRouter,
     setProjectMetadata: (metadata: Record<string, string | number | boolean>) => setProjectModuleMetadata(directory, metadata),
     saveCredentials: (credentials: { platform: string; adminUrl: string; username: string; password: string; email: string }) => saveSiteCredentials(directory, credentials)
   }))
+    if (!sender.isDestroyed()) sender.send('terminal:exit', { operationId, exitCode: 0, cancelled: false })
+  } catch (error) {
+    if (!sender.isDestroyed()) sender.send('terminal:exit', { operationId, exitCode: 1, cancelled: false })
+    throw error
+  }
 }
