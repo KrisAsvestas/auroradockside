@@ -119,6 +119,13 @@ export interface AuroraModuleSetting {
   type: AuroraModuleSettingType
   default: string | number | boolean
   options?: string[]
+  optionLabels?: Record<string, string>
+  placeholder?: string
+  required?: boolean
+  advanced?: boolean
+  secret?: boolean
+  icon?: 'title' | 'user' | 'key' | 'mail' | 'globe' | 'settings'
+  span?: 1 | 2
 }
 
 export interface AuroraModuleManifest {
@@ -137,6 +144,7 @@ export interface AuroraModuleManifest {
   creation?: {
     databases?: Array<'mariadb' | 'postgres'>
     setup?: AuroraModuleSetting[]
+    intro?: { title: string; description: string; icon?: string }
   }
   hooks?: Partial<Record<AuroraModuleLifecycleHook, AuroraModuleCommand[]>>
   project?: {

@@ -12,6 +12,7 @@ function wpArgs(context, network) {
 
 exports.projectCreate = async function projectCreate(context) {
   const s = context.settings
+  const title = String(s.title || '').trim() || context.projectName
   const base = wpArgs(context, false)
   const networkBase = wpArgs(context, true)
   const siteUrl = context.urls.https
@@ -19,10 +20,10 @@ exports.projectCreate = async function projectCreate(context) {
   await context.run('start', 'docker', ['compose', '-f', `${context.directory}/.aurora/compose.yaml`, 'up', '-d', '--build', '--remove-orphans'])
   await context.run('download', 'docker', [...base, 'core', 'download', `--locale=${s.locale || 'en_US'}`, '--force'])
   await context.run('config', 'docker', [...networkBase, 'config', 'create', '--dbname=db', '--dbuser=db', '--dbpass=db', '--dbhost=db:3306', '--skip-check', '--force'])
-  await context.run('install', 'docker', [...networkBase, 'core', 'install', `--url=${siteUrl}`, `--title=${s.title}`, `--admin_user=${s.admin_user}`, `--admin_password=${s.admin_password}`, `--admin_email=${s.admin_email}`, '--skip-email'])
+  await context.run('install', 'docker', [...networkBase, 'core', 'install', `--url=${siteUrl}`, `--title=${title}`, `--admin_user=${s.admin_user}`, `--admin_password=${s.admin_password}`, `--admin_email=${s.admin_email}`, '--skip-email'])
   await context.run('verify-install', 'docker', [...networkBase, 'core', 'is-installed'])
   if (s.multisite !== 'none') {
-    await context.run('multisite-convert', 'docker', [...networkBase, 'core', 'multisite-convert', `--title=${s.title}`, ...(s.multisite === 'subdomain' ? ['--subdomains'] : [])])
+    await context.run('multisite-convert', 'docker', [...networkBase, 'core', 'multisite-convert', `--title=${title}`, ...(s.multisite === 'subdomain' ? ['--subdomains'] : [])])
     await context.run('verify-network', 'docker', [...networkBase, 'core', 'is-installed', '--network'])
     await context.run('verify-network-db', 'docker', [...networkBase, 'db', 'query', "SHOW TABLES LIKE 'wp_blogs';", '--skip-column-names'])
   }
