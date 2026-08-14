@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Anchor, FolderOpen, Plus, Settings, Sparkles, TerminalSquare } from 'lucide-react'
+import { Anchor, Boxes, FolderOpen, Plus, Settings, Sparkles, TerminalSquare } from 'lucide-react'
 import { ProjectDetail } from './components/projects/ProjectDetail'
 import { ProjectList } from './components/projects/ProjectList'
 import { TerminalPanel } from './components/terminal/TerminalPanel'
@@ -7,6 +7,7 @@ import { StatusBar } from './components/layout/StatusBar'
 import { Toaster } from './components/ui/Toaster'
 import { CreateProjectModal } from './components/create/CreateProjectModal'
 import { SettingsModal } from './components/settings/SettingsModal'
+import { GlobalModuleManager } from './components/modules/GlobalModuleManager'
 import { useAppStore } from './stores/appStore'
 import { useTerminalEvents } from './hooks/useTerminalEvents'
 import { useAppliedTheme } from './hooks/useAppliedTheme'
@@ -17,6 +18,7 @@ function App(): React.JSX.Element {
   const selectedProjectName = useAppStore((s) => s.selectedProjectName)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isModulesOpen, setIsModulesOpen] = useState(false)
   useTerminalEvents()
   useAppliedTheme()
   useKeyboardShortcuts({
@@ -63,6 +65,9 @@ function App(): React.JSX.Element {
           </div>
           <div className="flex-1 overflow-y-auto">
             <ProjectList />
+          </div>
+          <div className="border-t border-neutral-200/70 p-2.5 dark:border-white/10">
+            <button type="button" onClick={() => setIsModulesOpen(true)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-neutral-600 transition hover:bg-cyan-50 hover:text-cyan-700 dark:text-neutral-300 dark:hover:bg-cyan-400/10 dark:hover:text-cyan-200"><Boxes size={16}/>Modules</button>
           </div>
         </aside>
         <main className="flex-1 overflow-y-auto">
@@ -126,6 +131,7 @@ function App(): React.JSX.Element {
       <Toaster />
       {isCreateOpen && <CreateProjectModal onClose={() => setIsCreateOpen(false)} />}
       {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} />}
+      {isModulesOpen && <GlobalModuleManager onClose={() => setIsModulesOpen(false)} />}
     </div>
   )
 }
