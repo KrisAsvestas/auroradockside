@@ -3,8 +3,8 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('electron', () => ({ app: { getPath: () => '/unused' } }))
-import { getModuleRegistry, installModulePackage, uninstallModulePackage, validateModuleManifest } from './moduleRegistry'
+vi.mock('electron', () => ({ app: { getPath: () => '/unused', getAppPath: () => '/unused/app' } }))
+import { getAvailableModulePackages, getModuleRegistry, installModulePackage, uninstallModulePackage, validateModuleManifest } from './moduleRegistry'
 
 const roots: string[] = []
 async function temp(prefix: string): Promise<string> { const root = await mkdtemp(join(tmpdir(), prefix)); roots.push(root); return root }
@@ -15,6 +15,12 @@ afterEach(async () => { const { rm } = await import('fs/promises'); await Promis
 
 describe('external module registry', () => {
   it('starts empty', async () => expect(await getModuleRegistry(await temp('aurora-user-'))).toEqual([]))
+  it('lists discoverable packages for the module library', async () => {
+    const catalog = await temp('aurora-catalog-'); const source = join(catalog, 'sample-app'); await mkdir(source); await writeFile(join(source, 'manifest.json'), JSON.stringify(manifest))
+    process.env.AURORA_MODULE_PATH = catalog
+    expect((await getAvailableModulePackages()).map((item) => item.manifest.id)).toContain('sample-app')
+    delete process.env.AURORA_MODULE_PATH
+  })
   it('installs a valid local package and refreshes after install', async () => {
     const userData = await temp('aurora-user-'); const source = await packageDir()
     await installModulePackage(source, userData)

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query'
-import type { AuroraInstalledModule, AuroraModuleManifest } from '@shared/types'
+import type { AuroraAvailableModule, AuroraInstalledModule, AuroraModuleManifest } from '@shared/types'
 import { useTerminalStore } from '../stores/terminalStore'
 import { useStatusStore } from '../stores/statusStore'
 
@@ -9,11 +9,26 @@ export function useModuleRegistry(): UseQueryResult<AuroraModuleManifest[], Erro
   return useQuery({ queryKey: ['modules', 'registry'], queryFn: () => window.api.modules.listRegistry() })
 }
 
+export function useAvailableModules(): UseQueryResult<AuroraAvailableModule[], Error> {
+  return useQuery({ queryKey: ['modules', 'available'], queryFn: () => window.api.modules.listAvailable() })
+}
+
 export function useInstallModulePackage(): UseMutationResult<void, Error, void> {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async () => { await window.api.modules.pickAndInstallPackage() },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['modules', 'registry'] })
+  })
+}
+
+export function useInstallAvailableModule(): UseMutationResult<void, Error, string> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (sourcePath) => { await window.api.modules.installPackage(sourcePath) },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['modules', 'registry'] })
+      await queryClient.invalidateQueries({ queryKey: ['modules', 'available'] })
+    }
   })
 }
 

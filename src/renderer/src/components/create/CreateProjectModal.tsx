@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { useCreateProject } from '../../hooks/useCreateProject'
 import { useAppStore } from '../../stores/appStore'
-import { useInstallModulePackage, useModuleRegistry } from '../../hooks/useModules'
+import { useAvailableModules, useInstallAvailableModule, useInstallModulePackage, useModuleRegistry } from '../../hooks/useModules'
 import { GenericSetup } from './types/GenericSetup'
 import { ExternalModuleSetup } from './types/ExternalModuleSetup'
 import type { TypeSetupHandle } from './types/shared'
@@ -53,6 +53,8 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
   const setupRef = useRef<TypeSetupHandle>(null)
   const { data: moduleRegistry = [] } = useModuleRegistry()
   const installPackage = useInstallModulePackage()
+  const installAvailable = useInstallAvailableModule()
+  const { data: availableModules = [], isLoading: availableLoading } = useAvailableModules()
   const applicationModules = moduleRegistry.filter((module) => module.category === 'application')
   const selectedModule = applicationModules.find((module) => module.id === projectType)
   const getTypeLabel = (type: string): string => applicationModules.find((module) => module.id === type)?.name ?? 'project'
@@ -262,7 +264,15 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                         </button>
                       )
                     })}
-                    {applicationModules.length === 0 && <div className="col-span-full rounded-xl border border-dashed border-amber-300 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100"><p className="font-semibold">No application modules installed</p><p className="mt-1">Install a compatible local Aurora module package to create a project.</p><button type="button" onClick={() => installPackage.mutate()} className="mt-3 rounded-lg bg-cyan-600 px-3 py-2 font-semibold text-white">Install local module…</button></div>}
+                    {applicationModules.length === 0 && <div className="col-span-full rounded-xl border border-dashed border-amber-300 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+                      <p className="font-semibold">Available application modules</p>
+                      <p className="mt-1">Choose a module to add to Aurora.</p>
+                      <div className="mt-3 grid gap-2">
+                        {availableModules.filter((item) => item.manifest.category === 'application').map((item) => <div key={item.manifest.id} className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white/70 p-3 dark:border-white/10 dark:bg-neutral-950/40"><div><p className="font-semibold">{item.manifest.name}</p><p className="text-xs opacity-75">{item.manifest.description} · v{item.manifest.version}</p></div><button type="button" disabled={installAvailable.isPending} onClick={() => installAvailable.mutate(item.sourcePath)} className="rounded-lg bg-cyan-600 px-3 py-2 font-semibold text-white disabled:opacity-50">{installAvailable.isPending ? 'Installing…' : 'Install'}</button></div>)}
+                        {!availableLoading && availableModules.filter((item) => item.manifest.category === 'application').length === 0 && <p className="rounded-lg bg-white/60 p-3 text-xs dark:bg-neutral-950/40">No packages were found beside Aurora.</p>}
+                      </div>
+                      <button type="button" onClick={() => installPackage.mutate()} className="mt-3 text-xs font-semibold underline underline-offset-2">Install from another folder…</button>
+                    </div>}
                   </div>
                 </div>
 

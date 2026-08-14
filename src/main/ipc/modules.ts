@@ -1,10 +1,11 @@
 import { dialog, ipcMain } from 'electron'
 import { getProjectRoot, listInstalledModules, listModules, scaffoldApplicationModule, setModule } from '../auroraEngine'
 import { runCommandStreamed } from '../commandRunner'
-import { installModulePackage, uninstallModulePackage } from '../moduleRegistry'
+import { getAvailableModulePackages, installModulePackage, uninstallModulePackage } from '../moduleRegistry'
 
 export function registerModulesIpc(): void {
   ipcMain.handle('modules:listRegistry', () => listModules())
+  ipcMain.handle('modules:listAvailable', () => getAvailableModulePackages())
   ipcMain.handle('modules:pickAndInstallPackage', async () => {
     const picked = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     if (picked.canceled || !picked.filePaths[0]) return null

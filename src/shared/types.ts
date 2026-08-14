@@ -171,6 +171,11 @@ export interface AuroraModuleInstallResult {
   installedPath: string
 }
 
+export interface AuroraAvailableModule {
+  manifest: AuroraModuleManifest
+  sourcePath: string
+}
+
 export interface AuroraAddonRegistryEntry {
   title: string
   github_url: string

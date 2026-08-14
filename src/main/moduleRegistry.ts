@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { cp, lstat, mkdir, readFile, readdir, realpath, rename, rm, stat } from 'fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'path'
-import type { AuroraModuleInstallResult, AuroraModuleManifest, AuroraModuleSetting } from '../shared/types'
+import type { AuroraAvailableModule, AuroraModuleInstallResult, AuroraModuleManifest, AuroraModuleSetting } from '../shared/types'
 
 export const CORE_VERSION = '2.0.0-alpha.24'
 export const MODULE_API_VERSION = '1.0.0'
@@ -77,6 +77,29 @@ export async function getModuleManifest(id: string): Promise<AuroraModuleManifes
   return module
 }
 export function invalidateModuleRegistry(): void { cache = null }
+
+function catalogDirectories(): string[] {
+  const configured = (process.env.AURORA_MODULE_PATH ?? '').split(process.platform === 'win32' ? ';' : ':').filter(Boolean)
+  const besideImage = process.env.APPIMAGE ? [join(dirname(process.env.APPIMAGE), 'modules')] : []
+  return [...configured, ...besideImage, join(process.cwd(), 'modules'), join(process.cwd(), 'packages'), join(app.getAppPath(), 'packages')]
+}
+
+export async function getAvailableModulePackages(): Promise<AuroraAvailableModule[]> {
+  const found = new Map<string, AuroraAvailableModule>()
+  for (const directory of catalogDirectories()) {
+    try {
+      for (const entry of await readdir(directory, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue
+        const sourcePath = join(directory, entry.name)
+        try {
+          const manifest = validateModuleManifest(JSON.parse(await readFile(join(sourcePath, 'manifest.json'), 'utf8')))
+          if (!found.has(manifest.id)) found.set(manifest.id, { manifest, sourcePath })
+        } catch { /* unrelated or incompatible package */ }
+      }
+    } catch { /* optional catalog directory */ }
+  }
+  return [...found.values()].sort((a, b) => a.manifest.name.localeCompare(b.manifest.name))
+}
 
 export async function installModulePackage(source: string, userData?: string): Promise<AuroraModuleInstallResult> {
   if (!isAbsolute(source)) throw new Error('Module package path must be absolute')

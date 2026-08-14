@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AuroraInstalledModule,
+  AuroraAvailableModule,
   AuroraModuleInstallResult,
   AuroraModuleManifest,
   AuroraProjectDetail,
@@ -82,6 +83,7 @@ const api = {
   },
   modules: {
     listRegistry: (): Promise<AuroraModuleManifest[]> => ipcRenderer.invoke('modules:listRegistry'),
+    listAvailable: (): Promise<AuroraAvailableModule[]> => ipcRenderer.invoke('modules:listAvailable'),
     listInstalled: (name: string): Promise<AuroraInstalledModule[]> =>
       ipcRenderer.invoke('modules:listInstalled', name),
     pickAndInstallPackage: (): Promise<AuroraModuleInstallResult | null> =>
