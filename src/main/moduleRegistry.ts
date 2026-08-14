@@ -1,11 +1,16 @@
 import { app } from 'electron'
-import { cp, lstat, mkdir, readFile, readdir, realpath, rename, rm, stat } from 'fs/promises'
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'path'
+import extract from 'extract-zip'
+import yauzl, { type Entry } from 'yauzl'
+import { cp, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat } from 'fs/promises'
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path'
 import type { AuroraAvailableModule, AuroraModuleInstallResult, AuroraModuleManifest, AuroraModuleSetting } from '../shared/types'
 
 export const CORE_VERSION = '2.0.0-alpha.24'
 export const MODULE_API_VERSION = '1.0.0'
 let cache: AuroraModuleManifest[] | null = null
+const MAX_PAC_ENTRIES = 4096
+const MAX_PAC_EXPANDED_BYTES = 256 * 1024 * 1024
+const MAX_MANIFEST_BYTES = 1024 * 1024
 
 export function moduleDirectory(userData = app.getPath('userData')): string { return join(userData, 'modules') }
 function validVersion(value: unknown): value is string { return typeof value === 'string' && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(value) }
@@ -79,6 +84,62 @@ async function assertSafePackageTree(root: string): Promise<void> {
   await visit(root)
 }
 
+function validatePacEntry(entry: Entry): void {
+  const name = entry.fileName
+  if (!name || name.includes('\\') || name.startsWith('/') || /^[A-Za-z]:/.test(name)) throw new Error(`Unsafe .pac entry path: ${name || '(empty)'}`)
+  if (name.split('/').some((part) => part === '..')) throw new Error(`Unsafe .pac entry path: ${name}`)
+  if ((entry.generalPurposeBitFlag & 0x1) !== 0) throw new Error(`Encrypted .pac entries are not supported: ${name}`)
+  const unixMode = (entry.externalFileAttributes >>> 16) & 0xffff
+  if ((unixMode & 0xf000) === 0xa000) throw new Error(`.pac packages may not contain symbolic links: ${name}`)
+}
+
+async function inspectPac(source: string): Promise<AuroraModuleManifest> {
+  return new Promise((resolvePromise, rejectPromise) => {
+    yauzl.open(source, { lazyEntries: true, decodeStrings: true }, (openError, zip) => {
+      if (openError || !zip) { rejectPromise(openError ?? new Error('Unable to open .pac package')); return }
+      let entries = 0
+      let expandedBytes = 0
+      let manifest: AuroraModuleManifest | null = null
+      let settled = false
+      const fail = (error: unknown): void => {
+        if (settled) return
+        settled = true
+        zip.close()
+        rejectPromise(error instanceof Error ? error : new Error(String(error)))
+      }
+      zip.on('error', fail)
+      zip.on('entry', (entry) => {
+        try {
+          validatePacEntry(entry)
+          entries += 1
+          expandedBytes += entry.uncompressedSize
+          if (entries > MAX_PAC_ENTRIES) throw new Error(`.pac contains more than ${MAX_PAC_ENTRIES} entries`)
+          if (expandedBytes > MAX_PAC_EXPANDED_BYTES) throw new Error('.pac expanded size exceeds 256 MiB')
+          if (entry.fileName !== 'manifest.json') { zip.readEntry(); return }
+          if (entry.uncompressedSize > MAX_MANIFEST_BYTES) throw new Error('.pac manifest exceeds 1 MiB')
+          zip.openReadStream(entry, (streamError, stream) => {
+            if (streamError || !stream) { fail(streamError ?? new Error('Unable to read .pac manifest')); return }
+            const chunks: Buffer[] = []
+            stream.on('data', (chunk: Buffer) => chunks.push(chunk))
+            stream.on('error', fail)
+            stream.on('end', () => {
+              try { manifest = validateModuleManifest(JSON.parse(Buffer.concat(chunks).toString('utf8'))); zip.readEntry() } catch (error) { fail(error) }
+            })
+          })
+        } catch (error) { fail(error) }
+      })
+      zip.on('end', () => {
+        if (settled) return
+        settled = true
+        zip.close()
+        if (!manifest) rejectPromise(new Error('.pac must contain manifest.json at the archive root'))
+        else resolvePromise(manifest)
+      })
+      zip.readEntry()
+    })
+  })
+}
+
 export async function getModuleRegistry(userData?: string): Promise<AuroraModuleManifest[]> {
   if (!userData && cache) return cache
   const dir = moduleDirectory(userData)
@@ -101,7 +162,9 @@ export function invalidateModuleRegistry(): void { cache = null }
 
 function catalogDirectories(): string[] {
   const configured = (process.env.AURORA_MODULE_PATH ?? '').split(process.platform === 'win32' ? ';' : ':').filter(Boolean)
-  const besideImage = process.env.APPIMAGE ? [join(dirname(process.env.APPIMAGE), 'modules')] : []
+  const besideImage = process.env.APPIMAGE
+    ? [dirname(process.env.APPIMAGE), join(dirname(process.env.APPIMAGE), 'modules')]
+    : []
   return [...configured, ...besideImage, join(process.cwd(), 'modules'), join(process.cwd(), 'packages'), join(app.getAppPath(), 'packages')]
 }
 
@@ -110,10 +173,12 @@ export async function getAvailableModulePackages(): Promise<AuroraAvailableModul
   for (const directory of catalogDirectories()) {
     try {
       for (const entry of await readdir(directory, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue
+        if (!entry.isDirectory() && !(entry.isFile() && extname(entry.name).toLowerCase() === '.pac')) continue
         const sourcePath = join(directory, entry.name)
         try {
-          const manifest = validateModuleManifest(JSON.parse(await readFile(join(sourcePath, 'manifest.json'), 'utf8')))
+          const manifest = entry.isDirectory()
+            ? validateModuleManifest(JSON.parse(await readFile(join(sourcePath, 'manifest.json'), 'utf8')))
+            : await inspectPac(sourcePath)
           if (!found.has(manifest.id)) found.set(manifest.id, { manifest, sourcePath })
         } catch { /* unrelated or incompatible package */ }
       }
@@ -124,17 +189,45 @@ export async function getAvailableModulePackages(): Promise<AuroraAvailableModul
 
 export async function installModulePackage(source: string, userData?: string): Promise<AuroraModuleInstallResult> {
   if (!isAbsolute(source)) throw new Error('Module package path must be absolute')
-  if (!(await stat(source)).isDirectory()) throw new Error('Select an unpacked local module directory')
-  await assertSafePackageTree(source)
-  const manifest = validateModuleManifest(JSON.parse(await readFile(join(source, 'manifest.json'), 'utf8')))
+  const sourceInfo = await stat(source)
+  const isDirectory = sourceInfo.isDirectory()
+  const isPac = sourceInfo.isFile() && extname(source).toLowerCase() === '.pac'
+  if (!isDirectory && !isPac) throw new Error('Select an Aurora .pac file or unpacked module directory')
   const modules = moduleDirectory(userData)
   await mkdir(modules, { recursive: true })
+  const staging = await mkdtemp(join(modules, '.install-'))
+  let manifest: AuroraModuleManifest
+  try {
+    if (isDirectory) {
+      await assertSafePackageTree(source)
+      await cp(source, staging, { recursive: true, errorOnExist: false })
+    } else {
+      manifest = await inspectPac(source)
+      await extract(source, { dir: staging })
+    }
+    await assertSafePackageTree(staging)
+    manifest = validateModuleManifest(JSON.parse(await readFile(join(staging, 'manifest.json'), 'utf8')))
+  } catch (error) {
+    await rm(staging, { recursive: true, force: true })
+    throw error
+  }
   const destination = resolve(modules, manifest.id)
   if (dirname(destination) !== resolve(modules) || basename(destination) !== manifest.id) throw new Error('Unsafe module destination')
-  const staging = join(modules, `.${manifest.id}-${process.pid}-${Date.now()}`)
-  await cp(source, staging, { recursive: true, errorOnExist: true })
-  await rm(destination, { recursive: true, force: true })
-  await rename(staging, destination)
+  const backup = join(modules, `.backup-${manifest.id}-${process.pid}-${Date.now()}`)
+  let hadExisting = false
+  try {
+    try { await stat(destination); hadExisting = true } catch { hadExisting = false }
+    if (hadExisting) await rename(destination, backup)
+    await rename(staging, destination)
+    await rm(backup, { recursive: true, force: true })
+  } catch (error) {
+    await rm(staging, { recursive: true, force: true })
+    if (hadExisting) {
+      await rm(destination, { recursive: true, force: true })
+      await rename(backup, destination)
+    }
+    throw error
+  }
   invalidateModuleRegistry()
   return { manifest, installedPath: destination }
 }

@@ -1,4 +1,6 @@
+import { execFile } from 'child_process'
 import { mkdtemp, mkdir, readFile, symlink, writeFile } from 'fs/promises'
+import { promisify } from 'util'
 import { join, resolve } from 'path'
 import { tmpdir } from 'os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -7,9 +9,16 @@ vi.mock('electron', () => ({ app: { getPath: () => '/unused', getAppPath: () => 
 import { getAvailableModulePackages, getModuleRegistry, installModulePackage, uninstallModulePackage, validateModuleManifest } from './moduleRegistry'
 
 const roots: string[] = []
+const execFileAsync = promisify(execFile)
 async function temp(prefix: string): Promise<string> { const root = await mkdtemp(join(tmpdir(), prefix)); roots.push(root); return root }
 const manifest = { id: 'sample-app', name: 'Sample', version: '1.0.0', category: 'application', description: 'test', aurora: { core: '2.0.0-alpha.24', moduleApi: '1.0.0' }, dependencies: [], conflicts: [], settings: [] }
 async function packageDir(value = manifest): Promise<string> { const root = await temp('aurora-package-'); await writeFile(join(root, 'manifest.json'), JSON.stringify(value)); return root }
+async function pacFile(value = manifest): Promise<string> {
+  const source = await packageDir(value)
+  const output = join(await temp('aurora-pac-'), `${value.id}.pac`)
+  await execFileAsync('zip', ['-qr', output, '.'], { cwd: source })
+  return output
+}
 
 afterEach(async () => { const { rm } = await import('fs/promises'); await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))) })
 
@@ -20,6 +29,27 @@ describe('external module registry', () => {
     process.env.AURORA_MODULE_PATH = catalog
     expect((await getAvailableModulePackages()).map((item) => item.manifest.id)).toContain('sample-app')
     delete process.env.AURORA_MODULE_PATH
+  })
+  it('discovers and installs a compressed .pac package', async () => {
+    const catalog = await temp('aurora-catalog-')
+    const pac = await pacFile()
+    const catalogPac = join(catalog, 'sample-app.pac')
+    await import('fs/promises').then(({ copyFile }) => copyFile(pac, catalogPac))
+    process.env.AURORA_MODULE_PATH = catalog
+    expect((await getAvailableModulePackages()).map((item) => item.manifest.id)).toContain('sample-app')
+    delete process.env.AURORA_MODULE_PATH
+    const userData = await temp('aurora-user-')
+    const installed = await installModulePackage(catalogPac, userData)
+    expect(installed.manifest.id).toBe('sample-app')
+    expect((await getModuleRegistry(userData)).map((item) => item.id)).toEqual(['sample-app'])
+  })
+  it('discovers a .pac distributed beside the AppImage', async () => {
+    const release = await temp('aurora-release-')
+    const pac = await pacFile()
+    await import('fs/promises').then(({ copyFile }) => copyFile(pac, join(release, 'sample-app.pac')))
+    process.env.APPIMAGE = join(release, 'aurora-dockside.AppImage')
+    expect((await getAvailableModulePackages()).map((item) => item.manifest.id)).toContain('sample-app')
+    delete process.env.APPIMAGE
   })
   it('installs a valid local package and refreshes after install', async () => {
     const userData = await temp('aurora-user-'); const source = await packageDir()
@@ -36,6 +66,26 @@ describe('external module registry', () => {
   it('rejects symbolic links in package paths', async () => {
     const userData = await temp('aurora-user-'); const source = await packageDir(); await mkdir(join(source, 'main')); await symlink('/tmp', join(source, 'main', 'escape'))
     await expect(installModulePackage(source, userData)).rejects.toThrow(/symbolic links/)
+  })
+  it('rejects symbolic links and traversal paths inside .pac archives', async () => {
+    const userData = await temp('aurora-user-')
+    const linkedSource = await packageDir()
+    await symlink('/tmp', join(linkedSource, 'escape'))
+    const linkedPac = join(await temp('aurora-pac-'), 'linked.pac')
+    await execFileAsync('zip', ['-qry', linkedPac, '.'], { cwd: linkedSource })
+    await expect(installModulePackage(linkedPac, userData)).rejects.toThrow(/symbolic links/)
+
+    const traversalSource = await packageDir()
+    await mkdir(join(traversalSource, 'xx'))
+    await writeFile(join(traversalSource, 'xx', 'evil'), 'unsafe')
+    const traversalPac = join(await temp('aurora-pac-'), 'traversal.pac')
+    await execFileAsync('zip', ['-qr', traversalPac, '.'], { cwd: traversalSource })
+    const archive = await readFile(traversalPac)
+    const original = Buffer.from('xx/evil')
+    const unsafe = Buffer.from('../evil')
+    for (let offset = archive.indexOf(original); offset !== -1; offset = archive.indexOf(original, offset + unsafe.length)) unsafe.copy(archive, offset)
+    await writeFile(traversalPac, archive)
+    await expect(installModulePackage(traversalPac, userData)).rejects.toThrow(/(?:Unsafe \.pac entry path|invalid relative path)/)
   })
   it('refreshes after uninstall without touching source', async () => {
     const userData = await temp('aurora-user-'); const source = await packageDir(); await installModulePackage(source, userData); await uninstallModulePackage('sample-app', userData)
@@ -64,5 +114,10 @@ describe('external module registry', () => {
     const packageRoot = resolve(process.cwd(), 'packages/aurora-module-wordpress')
     const actual = JSON.parse(await readFile(join(packageRoot, 'manifest.json'), 'utf8'))
     expect(validateModuleManifest(actual).id).toBe('wordpress')
+    const archive = join(await temp('aurora-pac-'), 'wordpress.pac')
+    await execFileAsync('zip', ['-qr', archive, '.'], { cwd: packageRoot })
+    const userData = await temp('aurora-user-')
+    expect((await installModulePackage(archive, userData)).manifest.id).toBe('wordpress')
+    expect((await getModuleRegistry(userData)).map((item) => item.id)).toEqual(['wordpress'])
   })
 })

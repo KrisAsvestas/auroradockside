@@ -42,7 +42,7 @@ export function GlobalModuleManager({ onClose }: { onClose: () => void }): React
           })}
         </div>}
       </div>
-      <footer className="flex justify-between border-t border-neutral-200 bg-neutral-50 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03]"><button type="button" onClick={() => installFromFolder.mutate()} className="text-sm font-medium text-neutral-500 hover:text-cyan-700 dark:hover:text-cyan-300">Install from folder…</button><button type="button" onClick={onClose} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium dark:border-white/10">Close</button></footer>
+      <footer className="flex justify-between border-t border-neutral-200 bg-neutral-50 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03]"><button type="button" onClick={() => installFromFolder.mutate()} className="text-sm font-medium text-neutral-500 hover:text-cyan-700 dark:hover:text-cyan-300">Install .pac or folder…</button><button type="button" onClick={onClose} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium dark:border-white/10">Close</button></footer>
     </div>
   </div>
 }

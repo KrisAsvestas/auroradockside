@@ -7,7 +7,10 @@ export function registerModulesIpc(): void {
   ipcMain.handle('modules:listRegistry', () => listModules())
   ipcMain.handle('modules:listAvailable', () => getAvailableModulePackages())
   ipcMain.handle('modules:pickAndInstallPackage', async () => {
-    const picked = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    const picked = await dialog.showOpenDialog({
+      properties: ['openFile', 'openDirectory'],
+      filters: [{ name: 'Aurora module packages', extensions: ['pac'] }]
+    })
     if (picked.canceled || !picked.filePaths[0]) return null
     return installModulePackage(picked.filePaths[0])
   })
