@@ -97,7 +97,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/55 p-3 backdrop-blur-sm sm:p-4">
       <div
-        className="dark grid w-full max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 text-neutral-100 shadow-[0_30px_100px_rgba(0,0,0,0.48)] md:grid-cols-[0.82fr_1.18fr]"
+        className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-white/70 bg-white text-neutral-900 shadow-[0_30px_100px_rgba(15,23,42,0.28)] dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-100 dark:shadow-[0_30px_100px_rgba(0,0,0,0.48)] md:grid-cols-[0.82fr_1.18fr]"
         style={{ height: 'min(760px, calc(100vh - 24px))', maxHeight: 'calc(100vh - 24px)' }}
       >
         <aside className="relative hidden overflow-hidden bg-neutral-950 p-6 text-white md:block">
@@ -139,8 +139,8 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
           </div>
         </aside>
 
-        <div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_100%_0%,rgba(34,211,238,0.10),transparent_36%),linear-gradient(180deg,#0a0f16_0%,#090c12_58%,#071417_100%)] [scrollbar-gutter:stable]">
-          <div className="sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-neutral-950/90 px-5 py-4 backdrop-blur-xl">
+        <div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_100%_0%,rgba(6,182,212,0.08),transparent_36%),linear-gradient(180deg,#f8fafc_0%,#ffffff_58%,#f0f9fa_100%)] [scrollbar-gutter:stable] dark:bg-[radial-gradient(circle_at_100%_0%,rgba(34,211,238,0.10),transparent_36%),linear-gradient(180deg,#0a0f16_0%,#090c12_58%,#071417_100%)]">
+          <div className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200/80 bg-slate-50/90 px-5 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/90">
             <div>
               <h2 className="text-base font-semibold">
                 {step === 'site' ? 'New Project' : `Set up ${getTypeLabel(projectType)}`}
@@ -305,7 +305,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
             </div>
           </div>
 
-          <div className="sticky bottom-0 z-20 flex items-center justify-between gap-3 border-t border-white/10 bg-neutral-950/90 p-4 backdrop-blur-xl">
+          <div className="sticky bottom-0 z-20 flex items-center justify-between gap-3 border-t border-slate-200/80 bg-slate-50/90 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/90">
             <button
               type="button"
               onClick={step === 'site' ? onClose : () => setStep('site')}

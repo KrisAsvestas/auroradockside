@@ -4,8 +4,7 @@ import { useThemeStore, type Theme } from '../../stores/themeStore'
 
 const THEMES: { value: Theme; label: string }[] = [
   { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'system', label: 'System' }
+  { value: 'dark', label: 'Dark' }
 ]
 
 const SHORTCUTS = [

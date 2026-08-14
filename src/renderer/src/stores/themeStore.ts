@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export type Theme = 'light' | 'dark' | 'system'
+export type Theme = 'light' | 'dark'
 
 interface ThemeState {
   theme: Theme
@@ -11,11 +11,18 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist<ThemeState>(
     (set) => ({
-      theme: 'system',
+      theme: 'dark',
       setTheme: (theme) => {
         set({ theme })
       }
     }),
-    { name: 'aurora-dockside-theme' }
+    {
+      name: 'aurora-dockside-theme',
+      version: 1,
+      migrate: (persisted) => {
+        const previous = persisted as Partial<ThemeState>
+        return { ...previous, theme: previous.theme === 'light' ? 'light' : 'dark' } as ThemeState
+      }
+    }
   )
 )
