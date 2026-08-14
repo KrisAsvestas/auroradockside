@@ -5,6 +5,7 @@ import {
   getModuleRegistry,
   installModulePackage
 } from './moduleRegistry'
+import { refreshRuntimeImages } from './auroraEngine'
 
 function updater(): AppUpdater {
   // electron-updater is CommonJS; destructuring its default import keeps the
@@ -42,6 +43,13 @@ export function startAutomaticUpdates(): void {
       if (updated.length) console.info(`Updated Aurora modules: ${updated.join(', ')}`)
     })
     .catch((error) => console.warn('Aurora module update check failed:', error))
+
+  void refreshRuntimeImages()
+    .then(({ checkedProjects, refreshedProjects, failures }) => {
+      console.info(`Aurora runtime update check refreshed ${refreshedProjects}/${checkedProjects} projects`)
+      if (failures.length) console.warn('Some Aurora runtime images could not be refreshed:', failures)
+    })
+    .catch((error) => console.warn('Aurora runtime update check failed:', error))
 
   // electron-updater needs a packaged application and release metadata. The
   // extracted development build intentionally skips the remote app check.

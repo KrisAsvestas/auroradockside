@@ -555,3 +555,53 @@ export async function powerOffProjects(): Promise<void> {
     } catch { /* stale project or Docker unavailable */ }
   }))
 }
+
+export interface RuntimeImageRefreshResult {
+  checkedProjects: number
+  refreshedProjects: number
+  failures: string[]
+}
+
+export async function refreshRuntimeImages(): Promise<RuntimeImageRefreshResult> {
+  const registry = await loadRegistry()
+  const roots = [...new Set(Object.values(registry.projects))]
+  const failures: string[] = []
+  let refreshedProjects = 0
+
+  // Refresh the shared router image without replacing a currently running
+  // router. The new revision is used the next time it is recreated.
+  try {
+    await execFileAsync('docker', ['pull', 'traefik:v3.5'], {
+      env: AURORA_ENV,
+      maxBuffer: 16 * 1024 * 1024
+    })
+  } catch (error) {
+    failures.push(`router: ${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  for (const root of roots) {
+    try {
+      await access(composePath(root))
+      // Pulls Node, nginx/Apache, MySQL/MariaDB/PostgreSQL, Adminer, Redis,
+      // Mailpit, and module-provided images. Running containers are not
+      // restarted, so an update cannot interrupt current work.
+      await execFileAsync(
+        'docker',
+        ['compose', '-f', composePath(root), 'pull', '--ignore-buildable', '--policy', 'always'],
+        { cwd: root, env: AURORA_ENV, maxBuffer: 32 * 1024 * 1024 }
+      )
+      // PHP is an Aurora-built image. --pull checks the selected php:<version>
+      // base tag for a newer patch/security revision before using the cache.
+      await execFileAsync(
+        'docker',
+        ['compose', '-f', composePath(root), 'build', '--pull', 'php'],
+        { cwd: root, env: AURORA_ENV, maxBuffer: 32 * 1024 * 1024 }
+      )
+      refreshedProjects += 1
+    } catch (error) {
+      failures.push(`${root}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  return { checkedProjects: roots.length, refreshedProjects, failures }
+}
