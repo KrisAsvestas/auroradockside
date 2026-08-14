@@ -139,8 +139,8 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
           </div>
         </aside>
 
-        <div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-          <div className="sticky top-0 z-20 flex items-center justify-between border-b border-neutral-200/80 bg-white/95 px-5 py-4 backdrop-blur dark:border-white/10 dark:bg-neutral-950/95">
+        <div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_100%_0%,rgba(6,182,212,0.10),transparent_34%),linear-gradient(180deg,#f8fafc_0%,#ffffff_52%,#f0f9fa_100%)] [scrollbar-gutter:stable] dark:bg-[radial-gradient(circle_at_100%_0%,rgba(34,211,238,0.10),transparent_36%),linear-gradient(180deg,#0a0f16_0%,#090c12_58%,#071417_100%)]">
+          <div className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200/80 bg-slate-50/90 px-5 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/90">
             <div>
               <h2 className="text-base font-semibold">
                 {step === 'site' ? 'New Project' : `Set up ${getTypeLabel(projectType)}`}
@@ -305,7 +305,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
             </div>
           </div>
 
-          <div className="sticky bottom-0 z-20 flex items-center justify-between gap-3 border-t border-neutral-200/80 bg-neutral-50/95 p-4 backdrop-blur dark:border-white/10 dark:bg-neutral-950/95">
+          <div className="sticky bottom-0 z-20 flex items-center justify-between gap-3 border-t border-slate-200/80 bg-slate-50/90 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/90">
             <button
               type="button"
               onClick={step === 'site' ? onClose : () => setStep('site')}
