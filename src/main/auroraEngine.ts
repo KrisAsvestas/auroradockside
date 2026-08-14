@@ -169,6 +169,8 @@ LoadModule mime_module modules/mod_mime.so
 LoadModule proxy_module modules/mod_proxy.so
 LoadModule proxy_fcgi_module modules/mod_proxy_fcgi.so
 LoadModule rewrite_module modules/mod_rewrite.so
+LoadModule unixd_module modules/mod_unixd.so
+LoadModule log_config_module modules/mod_log_config.so
 User daemon
 Group daemon
 ServerName localhost
@@ -215,12 +217,12 @@ export async function unregisterProject(name: string, deleteFiles: boolean): Pro
   if (deleteFiles && root) await rm(root, { recursive: true, force: true })
 }
 async function composeJson(root: string): Promise<any[]> {
-  try { const { stdout } = await execFileAsync('docker', ['compose', '-f', composePath(root), 'ps', '--format', 'json'], { env: AURORA_ENV, maxBuffer: 8*1024*1024 }); return stdout.trim().split('\n').filter(Boolean).map(x => JSON.parse(x)) } catch { return [] }
+  try { const { stdout } = await execFileAsync('docker', ['compose', '-f', composePath(root), 'ps', '--all', '--format', 'json'], { env: AURORA_ENV, maxBuffer: 8*1024*1024 }); return stdout.trim().split('\n').filter(Boolean).map(x => JSON.parse(x)) } catch { return [] }
 }
 export async function listProjects(): Promise<AuroraProjectSummary[]> {
   const reg = await loadRegistry(); const out: AuroraProjectSummary[] = []; const availableModules = new Set((await getModuleRegistry()).map((module) => module.id))
   for (const [name, root] of Object.entries(reg.projects)) {
-    try { await access(configPath(root)); const c = await readConfig(root); const ps = await composeJson(root); const running = ps.some(p => p.State === 'running'); const urls = projectUrls(c.name); const primary = c.primaryProtocol === 'http' ? urls.http : urls.https
+    try { await access(configPath(root)); const c = await readConfig(root); const ps = await composeJson(root); const running = ps.length > 0 && ps.every(p => p.State === 'running'); const urls = projectUrls(c.name); const primary = c.primaryProtocol === 'http' ? urls.http : urls.https
       const moduleAvailable = availableModules.has(c.type)
       out.push({ name, status: running?'running':'stopped', status_desc: moduleAvailable ? (running?'Running':'Stopped') : `Missing application module: ${c.type}`, type:c.type, approot:root, shortroot:root, docroot:c.docroot, primary_url:primary, httpurl:urls.http, httpsurl:urls.https, mutagen_enabled:false, module_available: moduleAvailable, missing_module_id: moduleAvailable ? undefined : c.type })
     } catch { /* stale registry entry */ }
@@ -228,7 +230,7 @@ export async function listProjects(): Promise<AuroraProjectSummary[]> {
 }
 export async function describeProject(name: string): Promise<AuroraProjectDetail> {
   const reg = await loadRegistry(); const root = reg.projects[name]; if (!root) throw new Error(`Aurora project '${name}' not found`)
-  const c = await readConfig(root); const ps = await composeJson(root); const running = ps.some(p=>p.State==='running'); const currentRouterStatus = await routerStatus(); const urlSet=projectUrls(c.name); const primary=c.primaryProtocol === 'http' ? urlSet.http : urlSet.https
+  const c = await readConfig(root); const ps = await composeJson(root); const running = ps.length > 0 && ps.every(p=>p.State==='running'); const currentRouterStatus = await routerStatus(); const urlSet=projectUrls(c.name); const primary=c.primaryProtocol === 'http' ? urlSet.http : urlSet.https
   const services: Record<string, any> = {}; for (const p of ps) services[p.Service]={short_name:p.Service,full_name:p.Name,status:p.State,image:p.Image,exposed_ports:'',host_ports:'',host_ports_mapping:[]}
   const legacyMultisite = c.wordpressMultisite ?? 'none'
   const moduleMultisite = String(c.moduleMetadata?.multisite ?? legacyMultisite) as 'none' | 'subdirectory' | 'subdomain'
