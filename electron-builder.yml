@@ -24,6 +24,9 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  executableName: aurora-dockside
+  icon: resources/icon.png
+  syncDesktopName: true
   target:
     - AppImage
     - deb

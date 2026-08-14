@@ -13,6 +13,7 @@
 - Package manifests are validated for identity, version, category, dependencies, conflicts, settings, Core/API compatibility, project contributions, and safe relative entry paths.
 - Native `.pac` files are ZIP-compressed Aurora packages with `manifest.json` at archive root.
 - A `.pac` placed beside the AppImage or in its `modules` folder is discovered automatically and appears in the Modules screen.
+- Linux packages use Aurora's 512×512 application icon and a synchronized `aurora-dockside` desktop filename, executable name, icon name, and `StartupWMClass`.
 - `.pac` inspection rejects encrypted entries, symbolic links, path traversal, absolute/drive paths, excessive entry counts, and expanded archives larger than 256 MiB before extraction.
 - Installation uses staging plus rollback-safe replacement, so a failed update preserves the currently installed module.
 - Application choices in New Project come only from the installed-module registry.
@@ -77,7 +78,7 @@ Live project smoke result for project `24`:
 SHA-256:
 
 ```text
-1964de899632f7dca86b5ee6485d5c2bc8dc0cffcc7a9de4479ea7eef25e9e76  aurora-dockside-2.0.0-alpha.24.AppImage
+faafa9555072e8de98db1ee65cf329804c0eb37d44cd3bf4e6b50c5216f9f6e6  aurora-dockside-2.0.0-alpha.24.AppImage
 d2165af4b75ab888c6d35a750a449205123866231ba5e98e1cbe9bcaa8738f46  aurora-module-wordpress-1.2.0.pac
 ```
 
