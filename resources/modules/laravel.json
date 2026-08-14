@@ -1,4 +1,0 @@
-{
-  "id":"laravel","name":"Laravel","version":"1.0.0","category":"application","description":"Laravel application with Composer and Vite-ready Node runtime.","icon":"code","dependencies":[],"conflicts":["wordpress","drupal"],"defaults":{"docroot":"public"},
-  "settings":[{"id":"starter","label":"Starter kit","type":"select","default":"none","options":["none","breeze"]}]
-}

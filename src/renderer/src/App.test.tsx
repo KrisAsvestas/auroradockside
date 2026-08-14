@@ -35,6 +35,6 @@ describe('App', () => {
 
   it('shows an empty state when there are no Aurora projects', async () => {
     renderApp()
-    await waitFor(() => expect(screen.getByText(/No Aurora projects found/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/No Aurora projects yet/)).toBeInTheDocument())
   })
 })

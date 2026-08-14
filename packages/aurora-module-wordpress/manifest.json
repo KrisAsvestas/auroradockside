@@ -1,0 +1,26 @@
+{
+  "id": "wordpress",
+  "name": "WordPress",
+  "version": "1.0.0",
+  "category": "application",
+  "description": "WordPress CMS provisioning and WP-CLI tooling.",
+  "main": "main/index.cjs",
+  "aurora": { "core": "2.0.0-alpha.24", "moduleApi": "1.0.0" },
+  "dependencies": [],
+  "conflicts": [],
+  "defaults": { "docroot": "" },
+  "settings": [],
+  "creation": {
+    "databases": ["mariadb"],
+    "setup": [
+      { "id": "locale", "label": "Locale", "type": "select", "default": "en_US", "options": ["en_US", "en_GB", "de_DE", "fr_FR", "es_ES"] },
+      { "id": "title", "label": "Site title", "type": "text", "default": "Aurora Site" },
+      { "id": "admin_user", "label": "Admin username", "type": "text", "default": "admin" },
+      { "id": "admin_password", "label": "Admin password", "type": "text", "default": "" },
+      { "id": "admin_email", "label": "Admin email", "type": "text", "default": "admin@example.test" },
+      { "id": "multisite", "label": "Site mode", "type": "select", "default": "none", "options": ["none", "subdirectory", "subdomain"] },
+      { "id": "wp_debug", "label": "Enable WP_DEBUG", "type": "boolean", "default": true }
+    ]
+  },
+  "project": { "adminPath": "/wp-admin/" }
+}

@@ -1,3 +1,0 @@
-{
-  "id":"drupal","name":"Drupal","version":"1.0.0","category":"application","description":"Drupal CMS using the recommended Composer project layout.","icon":"layers","dependencies":[],"conflicts":["wordpress","laravel"],"defaults":{"docroot":"web"},"settings":[]
-}

@@ -6,7 +6,23 @@ import { useStatusStore } from '../stores/statusStore'
 const installedModulesKey = (name: string): readonly [string, string, string] => ['modules', 'installed', name] as const
 
 export function useModuleRegistry(): UseQueryResult<AuroraModuleManifest[], Error> {
-  return useQuery({ queryKey: ['modules', 'registry'], queryFn: () => window.api.modules.listRegistry(), staleTime: Infinity })
+  return useQuery({ queryKey: ['modules', 'registry'], queryFn: () => window.api.modules.listRegistry() })
+}
+
+export function useInstallModulePackage(): UseMutationResult<void, Error, void> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => { await window.api.modules.pickAndInstallPackage() },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['modules', 'registry'] })
+  })
+}
+
+export function useUninstallModulePackage(): UseMutationResult<void, Error, string> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => window.api.modules.uninstallPackage(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['modules', 'registry'] })
+  })
 }
 
 export function useInstalledModules(name: string): UseQueryResult<AuroraInstalledModule[], Error> {

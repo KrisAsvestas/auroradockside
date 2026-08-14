@@ -5,20 +5,16 @@ import {
   ArrowRight,
   Boxes,
   Check,
-  FileCode2,
   FolderOpen,
   Globe2,
-  Layers3,
-  Package,
   Sparkles,
   X
 } from 'lucide-react'
 import { useCreateProject } from '../../hooks/useCreateProject'
 import { useAppStore } from '../../stores/appStore'
-import { getTypeLabel, PROJECT_TYPES } from './types/registry'
-import { DrupalSetup } from './types/DrupalSetup'
+import { useInstallModulePackage, useModuleRegistry } from '../../hooks/useModules'
 import { GenericSetup } from './types/GenericSetup'
-import { WordpressSetup } from './types/WordpressSetup'
+import { ExternalModuleSetup } from './types/ExternalModuleSetup'
 import type { TypeSetupHandle } from './types/shared'
 import { isValidProjectName, slugifyProjectName } from './projectName'
 import docksideIcon from '../../assets/dockside-icon.png'
@@ -32,17 +28,7 @@ const labelClass =
   'mb-1.5 block text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400'
 
 const TYPE_ICONS: Record<string, typeof Globe2> = {
-  '': Sparkles,
-  php: FileCode2,
-  wordpress: Globe2,
-  drupal: Layers3,
-  laravel: FileCode2,
-  backdrop: Layers3,
-  craftcms: Package,
-  magento2: Package,
-  shopware6: Package,
-  symfony: Boxes,
-  typo3: Layers3
+  '': Sparkles
 }
 
 export function CreateProjectModal({ onClose }: { onClose: () => void }): React.JSX.Element {
@@ -65,10 +51,15 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
   const createProject = useCreateProject()
   const selectProject = useAppStore((s) => s.selectProject)
   const setupRef = useRef<TypeSetupHandle>(null)
+  const { data: moduleRegistry = [] } = useModuleRegistry()
+  const installPackage = useInstallModulePackage()
+  const applicationModules = moduleRegistry.filter((module) => module.category === 'application')
+  const selectedModule = applicationModules.find((module) => module.id === projectType)
+  const getTypeLabel = (type: string): string => applicationModules.find((module) => module.id === type)?.name ?? 'project'
 
   const trimmedName = projectName.trim()
   const nameValid = trimmedName.length > 0 && isValidProjectName(trimmedName)
-  const canContinue = directory !== null && nameValid
+  const canContinue = directory !== null && nameValid && selectedModule !== undefined
   const canSubmit = canContinue && setupValid && !isSubmitting
 
   async function handlePickDirectory(): Promise<void> {
@@ -233,7 +224,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                 <div>
                   <label className={labelClass}>Project type</label>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {PROJECT_TYPES.map((t) => {
+                    {applicationModules.map((module) => ({ value: module.id, label: module.name, defaults: module.defaults })).map((t) => {
                       const Icon = TYPE_ICONS[t.value] ?? Boxes
                       const isSelected = projectType === t.value
 
@@ -243,13 +234,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                           type="button"
                           onClick={() => {
                             setProjectType(t.value)
-                            // drupal/recommended-project's installer-paths
-                            // expect a `web` docroot — default it in so a
-                            // fresh Drupal project doesn't end up serving
-                            // from an unexpected root (only if the user
-                            // hasn't already typed a docroot themselves).
-                            if (t.value === 'drupal' && !docroot.trim()) setDocroot('web')
-                            if (t.value === 'wordpress' && database === 'postgres') { setDatabase('mariadb'); setDatabaseVersion('11.8') }
+                            if (!docroot.trim() && t.defaults?.docroot) setDocroot(t.defaults.docroot)
                           }}
                           className={clsx(
                             'flex min-h-16 items-center gap-3 rounded-xl border px-3 py-3 text-left transition',
@@ -277,6 +262,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                         </button>
                       )
                     })}
+                    {applicationModules.length === 0 && <div className="col-span-full rounded-xl border border-dashed border-amber-300 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100"><p className="font-semibold">No application modules installed</p><p className="mt-1">Install a compatible local Aurora module package to create a project.</p><button type="button" onClick={() => installPackage.mutate()} className="mt-3 rounded-lg bg-cyan-600 px-3 py-2 font-semibold text-white">Install local module…</button></div>}
                   </div>
                 </div>
 
@@ -288,7 +274,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div><label className={labelClass}>PHP</label><select className={fieldClass} value={phpVersion} onChange={(e)=>setPhpVersion(e.target.value)}>{['8.2','8.3','8.4','8.5'].map(v=><option key={v}>{v}</option>)}</select></div>
                     <div><label className={labelClass}>Node.js</label><select className={fieldClass} value={nodeVersion} onChange={(e)=>setNodeVersion(e.target.value)}>{['20','22','24'].map(v=><option key={v}>{v}</option>)}</select></div>
-                    <div><label className={labelClass}>Database</label><select className={fieldClass} value={`${database}:${databaseVersion}`} onChange={(e)=>{const [kind,version]=e.target.value.split(':');setDatabase(kind as 'mariadb'|'postgres');setDatabaseVersion(version)}}><option value="mariadb:11.8">MariaDB 11.8</option><option value="mariadb:10.11">MariaDB 10.11</option>{projectType !== 'wordpress' && <><option value="postgres:17">PostgreSQL 17</option><option value="postgres:16">PostgreSQL 16</option></>}</select></div>
+                    <div><label className={labelClass}>Database</label><select className={fieldClass} value={`${database}:${databaseVersion}`} onChange={(e)=>{const [kind,version]=e.target.value.split(':');setDatabase(kind as 'mariadb'|'postgres');setDatabaseVersion(version)}}>{selectedModule?.creation?.databases?.includes('mariadb') !== false && <><option value="mariadb:11.8">MariaDB 11.8</option><option value="mariadb:10.11">MariaDB 10.11</option></>}{selectedModule?.creation?.databases?.includes('postgres') !== false && <><option value="postgres:17">PostgreSQL 17</option><option value="postgres:16">PostgreSQL 16</option></>}</select></div>
                     <div className="grid grid-cols-2 gap-2 pt-5">
                       {[['Adminer',adminer,setAdminer],['Redis',redis,setRedis],['Mailpit',mailpit,setMailpit],['Xdebug',xdebug,setXdebug]].map(([label,value,setter])=><label key={label as string} className="flex items-center gap-2 text-xs font-medium"><input type="checkbox" checked={value as boolean} onChange={(e)=>(setter as (v:boolean)=>void)(e.target.checked)} />{label as string}</label>)}
                     </div>
@@ -306,18 +292,8 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                   />
                 </div>
               </>
-            ) : projectType === 'wordpress' ? (
-              <WordpressSetup
-                ref={setupRef}
-                projectName={projectName.trim()}
-                onValidityChange={setSetupValid}
-              />
-            ) : projectType === 'drupal' ? (
-              <DrupalSetup
-                ref={setupRef}
-                projectName={projectName.trim()}
-                onValidityChange={setSetupValid}
-              />
+            ) : selectedModule ? (
+              <ExternalModuleSetup ref={setupRef} module={selectedModule} projectName={projectName.trim()} onValidityChange={setSetupValid} />
             ) : (
               <GenericSetup
                 ref={setupRef}

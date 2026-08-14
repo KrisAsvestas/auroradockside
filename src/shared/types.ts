@@ -13,6 +13,8 @@ export interface AuroraProjectSummary {
   httpsurl: string
   mutagen_enabled: boolean
   mutagen_status?: string
+  module_available?: boolean
+  missing_module_id?: string
 }
 
 export interface AuroraServiceHostPortMapping {
@@ -126,10 +128,21 @@ export interface AuroraModuleManifest {
   category: AuroraModuleCategory
   description: string
   icon?: string
+  main?: string
   dependencies: string[]
   conflicts: string[]
   defaults?: { docroot?: string }
   settings: AuroraModuleSetting[]
+  aurora: { core: string; moduleApi: string }
+  creation?: {
+    databases?: Array<'mariadb' | 'postgres'>
+    setup?: AuroraModuleSetting[]
+  }
+  hooks?: Partial<Record<AuroraModuleLifecycleHook, AuroraModuleCommand[]>>
+  project?: {
+    adminPath?: string
+    tools?: Array<{ id: string; label: string; hook: AuroraModuleLifecycleHook }>
+  }
   compose?: {
     service: string
     image: string
@@ -138,11 +151,24 @@ export interface AuroraModuleManifest {
   }
 }
 
+export type AuroraModuleLifecycleHook = 'projectCreate' | 'projectStart' | 'projectRemove' | 'packageUninstall'
+
+export interface AuroraModuleCommand {
+  command: string
+  args: string[]
+  operationLabel?: string
+}
+
 export interface AuroraInstalledModule {
   id: string
   name: string
   version: string
   category: AuroraModuleCategory
+}
+
+export interface AuroraModuleInstallResult {
+  manifest: AuroraModuleManifest
+  installedPath: string
 }
 
 export interface AuroraAddonRegistryEntry {

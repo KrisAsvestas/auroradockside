@@ -1,10 +1,7 @@
 import { ipcMain } from 'electron'
 import { spawn } from 'child_process'
-import { listProjects, describeProject, getProjectRoot, unregisterProject, updateEnvironment, ensureRouter, getProjectConfig, projectUrls, AURORA_ENV, trustAuroraCA } from '../auroraEngine'
+import { listProjects, describeProject, getProjectRoot, unregisterProject, updateEnvironment, ensureRouter, trustAuroraCA } from '../auroraEngine'
 import { runCommandStreamed } from '../commandRunner'
-import { execFile } from 'child_process'
-import { promisify } from 'util'
-const execFileAsync = promisify(execFile)
 const composeArgs=(root:string,...args:string[])=>['compose','-f',`${root}/.aurora/compose.yaml`,...args]
 const allowedServices = new Set(['web','php','db','node','adminer','redis','mailpit'])
 export function registerProjectsIpc():void{
@@ -29,16 +26,5 @@ export function registerProjectsIpc():void{
  ipcMain.handle('projects:trustCA',async()=>{ await trustAuroraCA(); await ensureRouter() })
  ipcMain.handle('projects:updateEnvironment',async(_e,_id:string,_name:string,root:string,updates:any)=>{
   await updateEnvironment(root,updates)
-  if (updates.primaryProtocol) {
-    const config = await getProjectConfig(root)
-    if (config.type === 'wordpress') {
-      const url = projectUrls(config.name)[updates.primaryProtocol === 'http' ? 'http' : 'https']
-      const network = `aurora-${config.name.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'project'}_default`
-      // Keep WordPress' canonical home/siteurl aligned with Dockside's primary protocol.
-      // WP-CLI talks to MariaDB over the project network; it does not need to trust local TLS.
-      await execFileAsync('docker', ['run','--rm','--network',network,'-e','HOME=/tmp','-v',`${root}:/app`,'-w','/app','wordpress:cli','option','update','home',url,'--allow-root'], { env: AURORA_ENV, maxBuffer: 8*1024*1024 })
-      await execFileAsync('docker', ['run','--rm','--network',network,'-e','HOME=/tmp','-v',`${root}:/app`,'-w','/app','wordpress:cli','option','update','siteurl',url,'--allow-root'], { env: AURORA_ENV, maxBuffer: 8*1024*1024 })
-    }
-  }
 })
 }

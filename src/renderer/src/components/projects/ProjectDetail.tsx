@@ -33,11 +33,11 @@ import {
 import { StatusBadge } from './StatusBadge'
 import { DatabaseSection } from './DatabaseSection'
 import { ModulesSection } from './ModulesSection'
-import { WordpressTools } from './WordpressTools'
 import { DeveloperServices } from './DeveloperServices'
 import { DeleteProjectModal } from './DeleteProjectModal'
 import { LogViewer } from '../logs/LogViewer'
 import { useAppStore } from '../../stores/appStore'
+import { useModuleRegistry } from '../../hooks/useModules'
 
 const NODE_VERSIONS = ['20', '22', '24']
 
@@ -79,6 +79,8 @@ const heroFieldClass =
 
 export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
   const { data: project, isLoading, isError, error } = useProjectDetail(name)
+  const { data: moduleRegistry = [] } = useModuleRegistry()
+  const applicationManifest = moduleRegistry.find((module) => module.id === project?.type)
   const startProject = useStartProject()
   const stopProject = useStopProject()
   const restartProject = useRestartProject()
@@ -93,7 +95,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
 
   useEffect(() => {
     let active = true
-    if (!project || project.type !== 'wordpress') {
+    if (!project || !applicationManifest?.project?.adminPath) {
       setSiteCredentials(null)
       return () => { active = false }
     }
@@ -101,7 +103,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
       if (active) setSiteCredentials(credentials)
     })
     return () => { active = false }
-  }, [project?.approot, project?.type])
+  }, [project?.approot, applicationManifest?.project?.adminPath])
 
   function copyCredential(value: string): void {
     void navigator.clipboard.writeText(value)
@@ -164,7 +166,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
       : PHP_VERSIONS
 
   const currentDatabase = `${project.dbinfo.database_type}:${project.dbinfo.database_version}`
-  const allowedDatabaseOptions = project.type === 'wordpress' ? DATABASE_OPTIONS.filter((o) => o.value.startsWith('mariadb:')) : DATABASE_OPTIONS
+  const allowedDatabaseOptions = applicationManifest?.creation?.databases?.length ? DATABASE_OPTIONS.filter((option) => applicationManifest.creation?.databases?.some((database) => option.value.startsWith(`${database}:`))) : DATABASE_OPTIONS
   const databaseOptions = allowedDatabaseOptions.some((o) => o.value === currentDatabase)
     ? DATABASE_OPTIONS
     : [
@@ -226,17 +228,17 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
               >
                 <FileText size={14} /> Logs
               </button>
-              {project.type === 'wordpress' && isRunning && (
+              {applicationManifest?.project?.adminPath && isRunning && (
                 <a
-                  href={`${project.primary_url}/wp-admin/`}
+                  href={`${project.primary_url.replace(/\/$/, '')}${applicationManifest.project.adminPath}`}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/10 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/[0.15]"
                 >
-                  <KeyRound size={14} /> WP Admin
+                  <KeyRound size={14} /> Application Admin
                 </a>
               )}
-              {project.type === 'wordpress' && isRunning && project.wordpress_network_admin_url && (
+              {applicationManifest?.project?.adminPath && isRunning && project.wordpress_network_admin_url && (
                 <a href={project.wordpress_network_admin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/10 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/[0.15]">
                   <Globe2 size={14} /> Network Admin
                 </a>
@@ -257,7 +259,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
               <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
                 Project type
               </p>
-              <p className="mt-1 truncate text-sm font-semibold text-white">{project.type}</p>{project.type === 'wordpress' && <p className="mt-1 text-[11px] text-neutral-400">{project.wordpress_multisite === 'subdomain' ? 'Multisite · Subdomain' : project.wordpress_multisite === 'subdirectory' ? 'Multisite · Subdirectory' : 'Single site'}</p>}
+              <p className="mt-1 truncate text-sm font-semibold text-white">{applicationManifest?.name ?? project.type}</p>{applicationManifest?.project?.adminPath && <p className="mt-1 text-[11px] text-neutral-400">{project.wordpress_multisite === 'subdomain' ? 'Multisite · Subdomain' : project.wordpress_multisite === 'subdirectory' ? 'Multisite · Subdirectory' : 'Single site'}</p>}
             </div>
 
             <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
@@ -419,7 +421,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
         </section>
       </div>
 
-      {project.type === 'wordpress' && siteCredentials && (
+      {applicationManifest?.project?.adminPath && siteCredentials && (
         <section className="rounded-xl border border-white/70 bg-white/[0.78] p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/[0.55]">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
@@ -443,7 +445,6 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
         </section>
       )}
 
-      {project.type === 'wordpress' && isRunning && <WordpressTools project={project} />}
       {isRunning && <DeveloperServices project={project} />}
 
       <section className="rounded-xl border border-white/70 bg-white/[0.78] p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/[0.55]">

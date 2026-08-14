@@ -4,7 +4,7 @@ import { promisify } from 'util'
 import { mkdir, readFile, writeFile, access, rm, readdir } from 'fs/promises'
 import { join } from 'path'
 import type { AuroraProjectDetail, AuroraProjectSummary, AuroraInstalledModule, AuroraModuleManifest, AuroraStackOptions } from '../shared/types'
-import { getModuleManifest, getModuleRegistry } from './moduleRegistry'
+import { CORE_VERSION, MODULE_API_VERSION, getModuleManifest, getModuleRegistry } from './moduleRegistry'
 
 const execFileAsync = promisify(execFile)
 const EXTRA_PATH_DIRS = ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']
@@ -23,6 +23,7 @@ type AuroraConfig = {
   moduleSettings?: Record<string, Record<string, string | number | boolean>>
   primaryProtocol?: 'http' | 'https'
   wordpressMultisite?: 'none' | 'subdirectory' | 'subdomain'
+  moduleMetadata?: Record<string, string | number | boolean>
   xdebug?: boolean
 }
 
@@ -87,7 +88,11 @@ async function renderCompose(c: AuroraConfig): Promise<string> {
   const db = c.database === 'postgres'
     ? `  db:\n    image: postgres:${c.databaseVersion}\n    environment:\n      POSTGRES_DB: db\n      POSTGRES_USER: db\n      POSTGRES_PASSWORD: db\n    volumes:\n      - db_data:/var/lib/postgresql/data\n    healthcheck:\n      test: [\"CMD-SHELL\", \"pg_isready -U db -d db\"]\n      interval: 3s\n      timeout: 3s\n      retries: 20`
     : `  db:\n    image: mariadb:${c.databaseVersion}\n    environment:\n      MARIADB_DATABASE: db\n      MARIADB_USER: db\n      MARIADB_PASSWORD: db\n      MARIADB_ROOT_PASSWORD: root\n    volumes:\n      - db_data:/var/lib/mysql\n    healthcheck:\n      test: [\"CMD\", \"healthcheck.sh\", \"--connect\", \"--innodb_initialized\"]\n      interval: 3s\n      timeout: 3s\n      retries: 20`
-  const manifests = await Promise.all(c.modules.filter((id) => id !== 'adminer').map((id) => getModuleManifest(id)))
+  const coreServices: Record<string, AuroraModuleManifest> = {
+    redis: { id: 'redis', name: 'Redis', version: '1.0.0', category: 'service', description: '', dependencies: [], conflicts: [], settings: [], aurora: { core: CORE_VERSION, moduleApi: MODULE_API_VERSION }, compose: { service: 'redis', image: 'redis:8-alpine', ports: [6379] } },
+    mailpit: { id: 'mailpit', name: 'Mailpit', version: '1.0.0', category: 'tool', description: '', dependencies: [], conflicts: [], settings: [], aurora: { core: CORE_VERSION, moduleApi: MODULE_API_VERSION }, compose: { service: 'mailpit', image: 'axllent/mailpit:latest', ports: [8025, 1025] } }
+  }
+  const manifests = await Promise.all(c.modules.filter((id) => id !== 'adminer').map((id) => coreServices[id] ?? getModuleManifest(id)))
   const extras = (await Promise.all(manifests.map((m) => renderModuleService(m, c)))).filter(Boolean)
   const volumes = ['  db_data:']
   if (c.modules.includes('redis') && c.moduleSettings?.redis?.persistence !== false) volumes.push('  redis_data:')
@@ -124,16 +129,18 @@ server {
 
 export async function createProject(root: string, name: string, type: string, docroot: string, stack?: Partial<AuroraStackOptions>): Promise<void> {
   await mkdir(root, { recursive: true })
-  const normalizedType = type || 'generic'
-  const defaultDocroot = docroot || (normalizedType === 'laravel' ? 'public' : normalizedType === 'drupal' ? 'web' : '')
-  const modules = normalizedType === 'generic' || normalizedType === 'php' ? [] : [normalizedType]
+  if (!type) throw new Error('Install and select an application module before creating a project')
+  const application = await getModuleManifest(type)
+  if (application.category !== 'application') throw new Error(`Module '${type}' cannot create application projects`)
+  const normalizedType = application.id
+  const defaultDocroot = docroot || application.defaults?.docroot || ''
+  const modules = [normalizedType]
   if (stack?.adminer !== false) modules.push('adminer')
   if (stack?.redis) modules.push('redis')
   if (stack?.mailpit) modules.push('mailpit')
   const config: AuroraConfig = { name, type: normalizedType, docroot: defaultDocroot, php: stack?.phpVersion || '8.4', node: stack?.nodeVersion || '24', webserver: 'nginx', database: stack?.database || 'mariadb', databaseVersion: stack?.databaseVersion || '11.8', modules, moduleSettings: {}, primaryProtocol: 'https', xdebug: stack?.xdebug === true }
   await writeConfig(root, config); await writeNginx(root, defaultDocroot); await writePhpDockerfile(root, config.xdebug)
   const reg = await loadRegistry(); reg.projects[name] = root; await saveRegistry(reg)
-  if (normalizedType === 'generic' || normalizedType === 'php') await writeFile(join(root, 'index.php'), `<?php echo '<h1>${name}</h1><p>Aurora Dockside is running.</p>';`)
 }
 export async function unregisterProject(name: string, deleteFiles: boolean): Promise<void> {
   const reg = await loadRegistry(); const root = reg.projects[name]; delete reg.projects[name]; await saveRegistry(reg)
@@ -143,10 +150,11 @@ async function composeJson(root: string): Promise<any[]> {
   try { const { stdout } = await execFileAsync('docker', ['compose', '-f', composePath(root), 'ps', '--format', 'json'], { env: AURORA_ENV, maxBuffer: 8*1024*1024 }); return stdout.trim().split('\n').filter(Boolean).map(x => JSON.parse(x)) } catch { return [] }
 }
 export async function listProjects(): Promise<AuroraProjectSummary[]> {
-  const reg = await loadRegistry(); const out: AuroraProjectSummary[] = []
+  const reg = await loadRegistry(); const out: AuroraProjectSummary[] = []; const availableModules = new Set((await getModuleRegistry()).map((module) => module.id))
   for (const [name, root] of Object.entries(reg.projects)) {
     try { await access(configPath(root)); const c = await readConfig(root); const ps = await composeJson(root); const running = ps.some(p => p.State === 'running'); const urls = projectUrls(c.name); const primary = c.primaryProtocol === 'http' ? urls.http : urls.https
-      out.push({ name, status: running?'running':'stopped', status_desc: running?'Running':'Stopped', type:c.type, approot:root, shortroot:root, docroot:c.docroot, primary_url:primary, httpurl:urls.http, httpsurl:urls.https, mutagen_enabled:false })
+      const moduleAvailable = availableModules.has(c.type)
+      out.push({ name, status: running?'running':'stopped', status_desc: moduleAvailable ? (running?'Running':'Stopped') : `Missing application module: ${c.type}`, type:c.type, approot:root, shortroot:root, docroot:c.docroot, primary_url:primary, httpurl:urls.http, httpsurl:urls.https, mutagen_enabled:false, module_available: moduleAvailable, missing_module_id: moduleAvailable ? undefined : c.type })
     } catch { /* stale registry entry */ }
   } return out
 }
@@ -154,7 +162,9 @@ export async function describeProject(name: string): Promise<AuroraProjectDetail
   const reg = await loadRegistry(); const root = reg.projects[name]; if (!root) throw new Error(`Aurora project '${name}' not found`)
   const c = await readConfig(root); const ps = await composeJson(root); const running = ps.some(p=>p.State==='running'); const currentRouterStatus = await routerStatus(); const urlSet=projectUrls(c.name); const primary=c.primaryProtocol === 'http' ? urlSet.http : urlSet.https
   const services: Record<string, any> = {}; for (const p of ps) services[p.Service]={short_name:p.Service,full_name:p.Name,status:p.State,image:p.Image,exposed_ports:'',host_ports:'',host_ports_mapping:[]}
-  return { name,status:running?'running':'stopped',status_desc:running?'Running':'Stopped',type:c.type,approot:root,shortroot:root,docroot:c.docroot,primary_url:primary,httpurl:urlSet.http,httpsurl:urlSet.https,mutagen_enabled:false,database_type:c.database,database_version:c.databaseVersion,dbinfo:{database_type:c.database,database_version:c.databaseVersion,dbPort:c.database==='postgres'?'5432':'3306',dbname:'db',host:'db',password:'db',published_port:0,username:'db'},hostname:projectHost(c.name),hostnames:[projectHost(c.name)],httpURLs:[urlSet.http],httpsURLs:[urlSet.https],urls:[urlSet.http,urlSet.https],php_version:c.php,nodejs_version:c.node,webserver_type:'nginx',router:'file',router_status:currentRouterStatus,certificate_status:await certificateStatus(c.name),ca_trust_status:await caTrustStatus(),firefox_trust_status:await firefoxTrustStatus(),chromium_trust_status:await chromiumTrustStatus(),wordpress_multisite:c.type==='wordpress'?(c.wordpressMultisite??'none'):undefined,wordpress_network_admin_url:c.type==='wordpress'&&c.wordpressMultisite&&c.wordpressMultisite!=='none'?`${primary.replace(/\/$/,'')}/wp-admin/network/`:undefined,adminer_url:c.modules.includes('adminer')?`https://adminer.${projectHost(c.name)}`:undefined,services,xdebug_enabled:c.xdebug===true }
+  const legacyMultisite = c.wordpressMultisite ?? 'none'
+  const moduleMultisite = String(c.moduleMetadata?.multisite ?? legacyMultisite) as 'none' | 'subdirectory' | 'subdomain'
+  return { name,status:running?'running':'stopped',status_desc:running?'Running':'Stopped',type:c.type,approot:root,shortroot:root,docroot:c.docroot,primary_url:primary,httpurl:urlSet.http,httpsurl:urlSet.https,mutagen_enabled:false,database_type:c.database,database_version:c.databaseVersion,dbinfo:{database_type:c.database,database_version:c.databaseVersion,dbPort:c.database==='postgres'?'5432':'3306',dbname:'db',host:'db',password:'db',published_port:0,username:'db'},hostname:projectHost(c.name),hostnames:[projectHost(c.name)],httpURLs:[urlSet.http],httpsURLs:[urlSet.https],urls:[urlSet.http,urlSet.https],php_version:c.php,nodejs_version:c.node,webserver_type:'nginx',router:'file',router_status:currentRouterStatus,certificate_status:await certificateStatus(c.name),ca_trust_status:await caTrustStatus(),firefox_trust_status:await firefoxTrustStatus(),chromium_trust_status:await chromiumTrustStatus(),wordpress_multisite:moduleMultisite,wordpress_network_admin_url:moduleMultisite!=='none'?`${primary.replace(/\/$/,'')}/wp-admin/network/`:undefined,adminer_url:c.modules.includes('adminer')?`https://adminer.${projectHost(c.name)}`:undefined,services,xdebug_enabled:c.xdebug===true }
 }
 export async function updateEnvironment(root:string, updates:{phpVersion?:string;nodeVersion?:string;database?:string;xdebugEnabled?:boolean;primaryProtocol?:'http'|'https'}):Promise<void>{
   const c=await readConfig(root)
@@ -171,6 +181,12 @@ export async function getProjectConfig(root: string): Promise<AuroraConfig> { re
 export async function setWordpressMultisite(root: string, mode: 'none' | 'subdirectory' | 'subdomain'): Promise<void> {
   const config = await readConfig(root)
   config.wordpressMultisite = mode
+  await writeConfig(root, config)
+}
+
+export async function setProjectModuleMetadata(root: string, metadata: Record<string, string | number | boolean>): Promise<void> {
+  const config = await readConfig(root)
+  config.moduleMetadata = { ...config.moduleMetadata, ...metadata }
   await writeConfig(root, config)
 }
 
@@ -240,17 +256,9 @@ export async function setModule(
   await writePhpDockerfile(root, config.xdebug === true)
 }
 
-export async function scaffoldApplicationModule(name: string, moduleId: string): Promise<void> {
-  const root = await getProjectRoot(name)
+export async function scaffoldApplicationModule(_name: string, moduleId: string): Promise<void> {
   const module = await getModuleManifest(moduleId)
   if (module.category !== 'application') return
-  if (moduleId === 'wordpress') {
-    await execFileAsync('docker', ['run', '--rm', '-v', `${root}:/app`, '-w', '/app', 'wordpress:cli', 'core', 'download', '--skip-content', '--force', '--allow-root'], { env: AURORA_ENV, maxBuffer: 16 * 1024 * 1024 })
-    return
-  }
-  const packageName = moduleId === 'laravel' ? 'laravel/laravel' : moduleId === 'drupal' ? 'drupal/recommended-project' : null
-  if (!packageName) return
-  await execFileAsync('docker', ['run', '--rm', '-v', `${root}:/app`, 'composer:2', 'sh', '-lc', `rm -rf /tmp/aurora-app && composer create-project ${packageName} /tmp/aurora-app --no-interaction && cp -a /tmp/aurora-app/. /app/`], { env: AURORA_ENV, maxBuffer: 32 * 1024 * 1024 })
 }
 
 export async function getProjectRoot(name:string):Promise<string>{const r=await loadRegistry();if(!r.projects[name])throw new Error(`Project ${name} not found`);return r.projects[name]}
@@ -411,7 +419,7 @@ async function writeRouterConfig(): Promise<void> {
       await ensureProjectCertificate(config.name || name)
       const safe = safeName(config.name || name)
       const host = projectHost(config.name || name)
-      const rule = config.type === 'wordpress' && config.wordpressMultisite === 'subdomain'
+      const rule = config.moduleMetadata?.routingWildcard === true
         ? `Host(\`${host}\`) || HostRegexp(\`^[a-z0-9-]+\\.${host.replace(/\./g, '\\.')}$\`)`
         : `Host(\`${host}\`)`
       routers.push(
@@ -477,4 +485,3 @@ export async function powerOffProjects(): Promise<void> {
     } catch { /* stale project or Docker unavailable */ }
   }))
 }
-

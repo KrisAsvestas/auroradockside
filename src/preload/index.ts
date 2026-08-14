@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AuroraInstalledModule,
+  AuroraModuleInstallResult,
   AuroraModuleManifest,
   AuroraProjectDetail,
   AuroraProjectSummary,
@@ -48,10 +49,6 @@ const api = {
       ipcRenderer.invoke('projects:phpInfo', operationId, name),
     openTerminal: (name: string): Promise<void> => ipcRenderer.invoke('projects:openTerminal', name)
   },
-  wordpress: {
-    run: (operationId: string, name: string, action: string, payload?: string): Promise<void> =>
-      ipcRenderer.invoke('wordpress:run', operationId, name, action, payload)
-  },
   terminal: {
     cancel: (operationId: string): Promise<boolean> =>
       ipcRenderer.invoke('terminal:cancel', operationId),
@@ -87,6 +84,11 @@ const api = {
     listRegistry: (): Promise<AuroraModuleManifest[]> => ipcRenderer.invoke('modules:listRegistry'),
     listInstalled: (name: string): Promise<AuroraInstalledModule[]> =>
       ipcRenderer.invoke('modules:listInstalled', name),
+    pickAndInstallPackage: (): Promise<AuroraModuleInstallResult | null> =>
+      ipcRenderer.invoke('modules:pickAndInstallPackage'),
+    installPackage: (source: string): Promise<AuroraModuleInstallResult> =>
+      ipcRenderer.invoke('modules:installPackage', source),
+    uninstallPackage: (id: string): Promise<void> => ipcRenderer.invoke('modules:uninstallPackage', id),
     install: (
       operationId: string,
       name: string,
@@ -129,52 +131,8 @@ const api = {
         docroot,
         stack
       ),
-    downloadWordpress: (operationId: string, directory: string, locale: string): Promise<void> =>
-      ipcRenderer.invoke('create:downloadWordpress', operationId, directory, locale),
-    setupWordpress: (
-      operationId: string,
-      directory: string,
-      siteUrl: string,
-      title: string,
-      adminUser: string,
-      adminPassword: string,
-      adminEmail: string,
-      multisite: 'none' | 'subdirectory' | 'subdomain'
-    ): Promise<void> =>
-      ipcRenderer.invoke(
-        'create:setupWordpress',
-        operationId,
-        directory,
-        siteUrl,
-        title,
-        adminUser,
-        adminPassword,
-        adminEmail,
-        multisite
-      ),
-    downloadDrupal: (operationId: string, directory: string): Promise<void> =>
-      ipcRenderer.invoke('create:downloadDrupal', operationId, directory),
-    requireDrush: (operationId: string, directory: string): Promise<void> =>
-      ipcRenderer.invoke('create:requireDrush', operationId, directory),
-    setupDrupal: (
-      operationId: string,
-      directory: string,
-      siteName: string,
-      adminUser: string,
-      adminPassword: string,
-      adminEmail: string,
-      profile: string
-    ): Promise<void> =>
-      ipcRenderer.invoke(
-        'create:setupDrupal',
-        operationId,
-        directory,
-        siteName,
-        adminUser,
-        adminPassword,
-        adminEmail,
-        profile
-      )
+    runModuleProjectCreate: (operationId: string, moduleId: string, directory: string, projectName: string, settings: Record<string, string | number | boolean>): Promise<void> =>
+      ipcRenderer.invoke('create:runModuleProjectCreate', operationId, moduleId, directory, projectName, settings),
   },
   secrets: {
     getSiteCredentials: (approot: string): Promise<AuroraSiteCredentials | null> =>

@@ -10,7 +10,6 @@ import { registerLogsIpc } from './ipc/logs'
 import { registerCreateIpc } from './ipc/create'
 import { registerWindowIpc } from './ipc/window'
 import { registerSecretsIpc } from './ipc/secrets'
-import { registerWordpressIpc } from './ipc/wordpress'
 import { killAllRunningCommands, powerOffAllProjects } from './commandRunner'
 
 function createWindow(): void {
@@ -68,7 +67,6 @@ app.whenReady().then(() => {
   registerCreateIpc()
   registerWindowIpc()
   registerSecretsIpc()
-  registerWordpressIpc()
 
   createWindow()
 
