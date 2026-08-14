@@ -87,6 +87,7 @@ export interface AuroraSiteCredentials {
 export interface AuroraStackOptions {
   phpVersion: string
   nodeVersion: string
+  webServer: 'nginx' | 'apache'
   database: 'mariadb' | 'postgres'
   databaseVersion: string
   adminer: boolean

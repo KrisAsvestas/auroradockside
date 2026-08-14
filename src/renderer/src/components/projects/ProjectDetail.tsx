@@ -57,9 +57,8 @@ const PHP_VERSIONS = [
 ]
 
 const WEBSERVER_TYPES = [
-  { value: 'nginx-fpm', label: 'nginx' },
-  { value: 'apache-fpm', label: 'Apache' },
-  { value: 'generic', label: 'Generic' }
+  { value: 'nginx', label: 'nginx' },
+  { value: 'apache', label: 'Apache' }
 ]
 
 const DATABASE_OPTIONS = [

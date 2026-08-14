@@ -16,7 +16,7 @@ type AuroraConfig = {
   docroot: string
   php: string
   node: string
-  webserver: 'nginx'
+  webserver: 'nginx' | 'apache'
   database: 'mariadb' | 'postgres'
   databaseVersion: string
   modules: string[]
@@ -32,6 +32,7 @@ const configDir = (root: string): string => join(root, '.aurora')
 const configPath = (root: string): string => join(configDir(root), 'config.json')
 const composePath = (root: string): string => join(configDir(root), 'compose.yaml')
 const phpDockerfilePath = (root: string): string => join(configDir(root), 'Dockerfile.php')
+const apacheConfigPath = (root: string): string => join(configDir(root), 'httpd.conf')
 const adminerAutoLoginPath = (root: string): string => join(configDir(root), 'adminer-auto-login.php')
 const registryPath = (): string => join(app.getPath('userData'), 'projects.json')
 const routerDir = (): string => join(app.getPath('userData'), 'router')
@@ -122,7 +123,9 @@ async function renderCompose(c: AuroraConfig): Promise<string> {
   const volumes = ['  db_data:']
   if (c.modules.includes('redis') && c.moduleSettings?.redis?.persistence !== false) volumes.push('  redis_data:')
   const adminer = c.modules.includes('adminer') ? `  adminer:\n    image: adminer:5\n    environment:\n      ADMINER_DEFAULT_SERVER: db\n    volumes:\n      - ./adminer-auto-login.php:/var/www/html/plugins-enabled/aurora-auto-login.php:ro\n    networks:\n      default:\n      aurora-router:\n        aliases:\n          - aurora-${safeName(c.name)}-adminer\n    depends_on:\n      db:\n        condition: service_healthy` : ''
-  return `name: aurora-${safeName(c.name)}\nservices:\n  web:\n    image: nginx:1.29-alpine\n    working_dir: /var/www/html\n    volumes:\n      - ../:/var/www/html\n      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro\n    ports:\n      - "127.0.0.1::80"\n    networks:\n      default:\n      aurora-router:\n        aliases:\n          - aurora-${safeName(c.name)}-web\n    depends_on:\n      php:\n        condition: service_started\n      db:\n        condition: service_healthy\n  php:\n    build:\n      context: .\n      dockerfile: Dockerfile.php\n      args:\n        PHP_VERSION: ${c.php}\n    working_dir: /var/www/html\n    volumes:\n      - ../:/var/www/html\n  node:\n    image: node:${c.node}-alpine\n    working_dir: /var/www/html\n    volumes:\n      - ../:/var/www/html\n    command: ["sh", "-c", "sleep infinity"]\n${db}${adminer ? `\n${adminer}` : ''}${extras.length ? `\n${extras.join('\n')}` : ''}\nvolumes:\n${volumes.join('\n')}\nnetworks:\n  aurora-router:\n    external: true\n    name: aurora-router\n`
+  const webImage = c.webserver === 'apache' ? 'httpd:2.4-alpine' : 'nginx:1.29-alpine'
+  const webConfigMount = c.webserver === 'apache' ? '      - ./httpd.conf:/usr/local/apache2/conf/httpd.conf:ro' : '      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro'
+  return `name: aurora-${safeName(c.name)}\nservices:\n  web:\n    image: ${webImage}\n    working_dir: /var/www/html\n    volumes:\n      - ../:/var/www/html\n${webConfigMount}\n    ports:\n      - "127.0.0.1::80"\n    networks:\n      default:\n      aurora-router:\n        aliases:\n          - aurora-${safeName(c.name)}-web\n    depends_on:\n      php:\n        condition: service_started\n      db:\n        condition: service_healthy\n  php:\n    build:\n      context: .\n      dockerfile: Dockerfile.php\n      args:\n        PHP_VERSION: ${c.php}\n    working_dir: /var/www/html\n    volumes:\n      - ../:/var/www/html\n  node:\n    image: node:${c.node}-alpine\n    working_dir: /var/www/html\n    volumes:\n      - ../:/var/www/html\n    command: ["sh", "-c", "sleep infinity"]\n${db}${adminer ? `\n${adminer}` : ''}${extras.length ? `\n${extras.join('\n')}` : ''}\nvolumes:\n${volumes.join('\n')}\nnetworks:\n  aurora-router:\n    external: true\n    name: aurora-router\n`
 }
 async function writePhpDockerfile(root: string, xdebug = false): Promise<void> {
   await writeFile(phpDockerfilePath(root), `ARG PHP_VERSION=8.4
@@ -152,6 +155,44 @@ server {
 `)
 }
 
+async function writeApache(root: string, docroot: string): Promise<void> {
+  const webroot = docroot ? `/var/www/html/${docroot}` : '/var/www/html'
+  await writeFile(apacheConfigPath(root), `ServerRoot "/usr/local/apache2"
+Listen 80
+LoadModule mpm_event_module modules/mod_mpm_event.so
+LoadModule authn_core_module modules/mod_authn_core.so
+LoadModule authz_core_module modules/mod_authz_core.so
+LoadModule dir_module modules/mod_dir.so
+LoadModule mime_module modules/mod_mime.so
+LoadModule proxy_module modules/mod_proxy.so
+LoadModule proxy_fcgi_module modules/mod_proxy_fcgi.so
+LoadModule rewrite_module modules/mod_rewrite.so
+User daemon
+Group daemon
+ServerName localhost
+DocumentRoot "${webroot}"
+DirectoryIndex index.php index.html
+<Directory "${webroot}">
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [QSA,L]
+</Directory>
+ProxyPassMatch ^/(.*\\.php(?:/.*)?)$ fcgi://php:9000/var/www/html/$1
+ErrorLog /proc/self/fd/2
+LogFormat "%h %l %u %t \\"%r\\" %>s %b" combined
+CustomLog /proc/self/fd/1 combined
+`)
+}
+
+async function writeWebServerConfig(root: string, config: AuroraConfig): Promise<void> {
+  if (config.webserver === 'apache') await writeApache(root, config.docroot)
+  else await writeNginx(root, config.docroot)
+}
+
 export async function createProject(root: string, name: string, type: string, docroot: string, stack?: Partial<AuroraStackOptions>): Promise<void> {
   await mkdir(root, { recursive: true })
   if (!type) throw new Error('Install and select an application module before creating a project')
@@ -163,8 +204,8 @@ export async function createProject(root: string, name: string, type: string, do
   if (stack?.adminer !== false) modules.push('adminer')
   if (stack?.redis) modules.push('redis')
   if (stack?.mailpit) modules.push('mailpit')
-  const config: AuroraConfig = { name, type: normalizedType, docroot: defaultDocroot, php: stack?.phpVersion || '8.4', node: stack?.nodeVersion || '24', webserver: 'nginx', database: stack?.database || 'mariadb', databaseVersion: stack?.databaseVersion || '11.8', modules, moduleSettings: {}, primaryProtocol: 'https', xdebug: stack?.xdebug === true }
-  await writeConfig(root, config); await writeNginx(root, defaultDocroot); await writePhpDockerfile(root, config.xdebug)
+  const config: AuroraConfig = { name, type: normalizedType, docroot: defaultDocroot, php: stack?.phpVersion || '8.4', node: stack?.nodeVersion || '24', webserver: stack?.webServer || 'nginx', database: stack?.database || 'mariadb', databaseVersion: stack?.databaseVersion || '11.8', modules, moduleSettings: {}, primaryProtocol: 'https', xdebug: stack?.xdebug === true }
+  await writeConfig(root, config); await writeWebServerConfig(root, config); await writePhpDockerfile(root, config.xdebug)
   const reg = await loadRegistry(); reg.projects[name] = root; await saveRegistry(reg)
 }
 export async function unregisterProject(name: string, deleteFiles: boolean): Promise<void> {
@@ -189,16 +230,18 @@ export async function describeProject(name: string): Promise<AuroraProjectDetail
   const services: Record<string, any> = {}; for (const p of ps) services[p.Service]={short_name:p.Service,full_name:p.Name,status:p.State,image:p.Image,exposed_ports:'',host_ports:'',host_ports_mapping:[]}
   const legacyMultisite = c.wordpressMultisite ?? 'none'
   const moduleMultisite = String(c.moduleMetadata?.multisite ?? legacyMultisite) as 'none' | 'subdirectory' | 'subdomain'
-  return { name,status:running?'running':'stopped',status_desc:running?'Running':'Stopped',type:c.type,approot:root,shortroot:root,docroot:c.docroot,primary_url:primary,httpurl:urlSet.http,httpsurl:urlSet.https,mutagen_enabled:false,database_type:c.database,database_version:c.databaseVersion,dbinfo:{database_type:c.database,database_version:c.databaseVersion,dbPort:c.database==='postgres'?'5432':'3306',dbname:'db',host:'db',password:'db',published_port:0,username:'db'},hostname:projectHost(c.name),hostnames:[projectHost(c.name)],httpURLs:[urlSet.http],httpsURLs:[urlSet.https],urls:[urlSet.http,urlSet.https],php_version:c.php,nodejs_version:c.node,webserver_type:'nginx',router:'file',router_status:currentRouterStatus,certificate_status:await certificateStatus(c.name),ca_trust_status:await caTrustStatus(),firefox_trust_status:await firefoxTrustStatus(),chromium_trust_status:await chromiumTrustStatus(),wordpress_multisite:moduleMultisite,wordpress_network_admin_url:moduleMultisite!=='none'?`${primary.replace(/\/$/,'')}/wp-admin/network/`:undefined,adminer_url:c.modules.includes('adminer')?`https://adminer.${projectHost(c.name)}`:undefined,services,xdebug_enabled:c.xdebug===true }
+  return { name,status:running?'running':'stopped',status_desc:running?'Running':'Stopped',type:c.type,approot:root,shortroot:root,docroot:c.docroot,primary_url:primary,httpurl:urlSet.http,httpsurl:urlSet.https,mutagen_enabled:false,database_type:c.database,database_version:c.databaseVersion,dbinfo:{database_type:c.database,database_version:c.databaseVersion,dbPort:c.database==='postgres'?'5432':'3306',dbname:'db',host:'db',password:'db',published_port:0,username:'db'},hostname:projectHost(c.name),hostnames:[projectHost(c.name)],httpURLs:[urlSet.http],httpsURLs:[urlSet.https],urls:[urlSet.http,urlSet.https],php_version:c.php,nodejs_version:c.node,webserver_type:c.webserver,router:'file',router_status:currentRouterStatus,certificate_status:await certificateStatus(c.name),ca_trust_status:await caTrustStatus(),firefox_trust_status:await firefoxTrustStatus(),chromium_trust_status:await chromiumTrustStatus(),wordpress_multisite:moduleMultisite,wordpress_network_admin_url:moduleMultisite!=='none'?`${primary.replace(/\/$/,'')}/wp-admin/network/`:undefined,adminer_url:c.modules.includes('adminer')?`https://adminer.${projectHost(c.name)}`:undefined,services,xdebug_enabled:c.xdebug===true }
 }
-export async function updateEnvironment(root:string, updates:{phpVersion?:string;nodeVersion?:string;database?:string;xdebugEnabled?:boolean;primaryProtocol?:'http'|'https'}):Promise<void>{
+export async function updateEnvironment(root:string, updates:{phpVersion?:string;nodeVersion?:string;webserverType?:string;database?:string;xdebugEnabled?:boolean;primaryProtocol?:'http'|'https'}):Promise<void>{
   const c=await readConfig(root)
   if(updates.phpVersion)c.php=updates.phpVersion
   if(updates.nodeVersion)c.node=updates.nodeVersion
+  if(updates.webserverType === 'nginx' || updates.webserverType === 'nginx-fpm') c.webserver='nginx'
+  if(updates.webserverType === 'apache' || updates.webserverType === 'apache-fpm') c.webserver='apache'
   if(typeof updates.xdebugEnabled === 'boolean') c.xdebug=updates.xdebugEnabled
   if(updates.database){const [kind,version]=updates.database.split(':'); if(kind==='mariadb'||kind==='postgres'){c.database=kind;c.databaseVersion=version||c.databaseVersion}}
   if(updates.primaryProtocol === 'http' || updates.primaryProtocol === 'https') c.primaryProtocol = updates.primaryProtocol
-  await writeConfig(root,c); await writeNginx(root,c.docroot); await writePhpDockerfile(root, c.xdebug === true)
+  await writeConfig(root,c); await writeWebServerConfig(root,c); await writePhpDockerfile(root, c.xdebug === true)
 }
 
 export async function getProjectConfig(root: string): Promise<AuroraConfig> { return readConfig(root) }
@@ -277,7 +320,7 @@ export async function setModule(
     if (config.type === moduleId) config.type = 'generic'
   }
   await writeConfig(root, config)
-  await writeNginx(root, config.docroot)
+  await writeWebServerConfig(root, config)
   await writePhpDockerfile(root, config.xdebug === true)
 }
 

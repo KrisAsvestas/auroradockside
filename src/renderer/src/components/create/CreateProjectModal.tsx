@@ -41,6 +41,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [phpVersion, setPhpVersion] = useState('8.4')
   const [nodeVersion, setNodeVersion] = useState('24')
+  const [webServer, setWebServer] = useState<'nginx' | 'apache'>('nginx')
   const [database, setDatabase] = useState<'mariadb' | 'postgres'>('mariadb')
   const [databaseVersion, setDatabaseVersion] = useState('11.8')
   const [adminer, setAdminer] = useState(true)
@@ -76,7 +77,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
     const name = projectName.trim()
     setIsSubmitting(true)
     try {
-      await createProject.mutateAsync({ directory, projectName: name, projectType, docroot, stack: { phpVersion, nodeVersion, database, databaseVersion, adminer, redis, mailpit, xdebug } })
+      await createProject.mutateAsync({ directory, projectName: name, projectType, docroot, stack: { phpVersion, nodeVersion, webServer, database, databaseVersion, adminer, redis, mailpit, xdebug } })
     } catch {
       setIsSubmitting(false)
       return
@@ -273,6 +274,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div><label className={labelClass}>PHP</label><select className={fieldClass} value={phpVersion} onChange={(e)=>setPhpVersion(e.target.value)}>{['8.2','8.3','8.4','8.5'].map(v=><option key={v}>{v}</option>)}</select></div>
                     <div><label className={labelClass}>Node.js</label><select className={fieldClass} value={nodeVersion} onChange={(e)=>setNodeVersion(e.target.value)}>{['20','22','24'].map(v=><option key={v}>{v}</option>)}</select></div>
+                    <div><label className={labelClass}>Web server</label><select className={fieldClass} value={webServer} onChange={(e)=>setWebServer(e.target.value as 'nginx'|'apache')}><option value="nginx">nginx</option><option value="apache">Apache</option></select></div>
                     <div><label className={labelClass}>Database</label><select className={fieldClass} value={`${database}:${databaseVersion}`} onChange={(e)=>{const [kind,version]=e.target.value.split(':');setDatabase(kind as 'mariadb'|'postgres');setDatabaseVersion(version)}}>{selectedModule?.creation?.databases?.includes('mariadb') !== false && <><option value="mariadb:11.8">MariaDB 11.8</option><option value="mariadb:10.11">MariaDB 10.11</option></>}{selectedModule?.creation?.databases?.includes('postgres') !== false && <><option value="postgres:17">PostgreSQL 17</option><option value="postgres:16">PostgreSQL 16</option></>}</select></div>
                     <div className="grid grid-cols-2 gap-2 pt-5">
                       {[['Adminer',adminer,setAdminer],['Redis',redis,setRedis],['Mailpit',mailpit,setMailpit],['Xdebug',xdebug,setXdebug]].map(([label,value,setter])=><label key={label as string} className="flex items-center gap-2 text-xs font-medium"><input type="checkbox" checked={value as boolean} onChange={(e)=>(setter as (v:boolean)=>void)(e.target.checked)} />{label as string}</label>)}
