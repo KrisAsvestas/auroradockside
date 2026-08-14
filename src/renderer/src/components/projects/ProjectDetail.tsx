@@ -178,7 +178,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-6">
-      <header className="overflow-hidden rounded-2xl border border-cyan-200/80 bg-gradient-to-br from-white via-slate-50 to-cyan-50 text-neutral-950 shadow-[0_20px_55px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+      <header className="overflow-hidden rounded-2xl border border-cyan-200/80 bg-gradient-to-br from-white via-slate-50 to-cyan-50 text-neutral-950 shadow-[0_20px_55px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-neutral-950 dark:bg-none dark:text-white dark:shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
         <div className="relative p-5">
           <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.07)_1px,transparent_1px)] bg-[size:36px_36px] dark:bg-[linear-gradient(rgba(45,212,191,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(45,212,191,0.09)_1px,transparent_1px)]" />
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-cyan-200/30 to-transparent dark:from-cyan-500/10" />
