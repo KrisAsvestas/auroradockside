@@ -33,6 +33,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@tanstack/react-query": "^5.101.4",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.9",
     "lucide-react": "^1.28.0",
     "tailwind-merge": "^3.6.0",
     "zustand": "^5.0.14"

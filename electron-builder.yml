@@ -31,3 +31,7 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
+publish:
+  provider: github
+  owner: KrisAsvestas
+  repo: auroradockside

@@ -11,6 +11,7 @@ import { registerCreateIpc } from './ipc/create'
 import { registerWindowIpc } from './ipc/window'
 import { registerSecretsIpc } from './ipc/secrets'
 import { killAllRunningCommands, powerOffAllProjects } from './commandRunner'
+import { startAutomaticUpdates } from './updater'
 
 function createWindow(): void {
   // Create the browser window.
@@ -69,6 +70,7 @@ app.whenReady().then(() => {
   registerSecretsIpc()
 
   createWindow()
+  startAutomaticUpdates()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
