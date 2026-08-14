@@ -8,6 +8,8 @@ export interface TerminalOperation {
   lines: string[]
   status: OperationStatus
   exitCode: number | null
+  startedAt: string
+  finishedAt: string | null
 }
 
 interface TerminalState {
@@ -33,7 +35,15 @@ export const useTerminalStore = create<TerminalState>((set) => ({
     set((state) => ({
       operations: {
         ...state.operations,
-        [id]: { id, label, lines: [], status: 'running', exitCode: null }
+        [id]: {
+          id,
+          label,
+          lines: [],
+          status: 'running',
+          exitCode: null,
+          startedAt: new Date().toISOString(),
+          finishedAt: null
+        }
       },
       activeOperationId: id,
       isPanelOpen: true
@@ -56,7 +66,7 @@ export const useTerminalStore = create<TerminalState>((set) => ({
       return {
         operations: {
           ...state.operations,
-          [id]: { ...op, status, exitCode }
+          [id]: { ...op, status, exitCode, finishedAt: new Date().toISOString() }
         }
       }
     }),

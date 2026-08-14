@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { Check, Copy, X } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useLogStream } from '../../hooks/useLogStream'
 
@@ -14,6 +14,7 @@ function LogPane({
 }): React.JSX.Element {
   const { lines, isStreaming } = useLogStream(name, service)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [copied, setCopied] = useState(false)
 
   const filteredLines = useMemo(() => {
     if (!filter.trim()) return lines
@@ -25,22 +26,41 @@ function LogPane({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [filteredLines.length])
 
+  const copyLogs = async (): Promise<void> => {
+    const report = [
+      'Aurora Dockside service log',
+      `Project: ${name}`,
+      `Service: ${service}`,
+      `Captured: ${new Date().toISOString()}`,
+      '',
+      ...filteredLines.map((line) => line.text)
+    ].join('\n')
+    await navigator.clipboard.writeText(report)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1600)
+  }
+
   return (
     <>
-      <span
-        className={clsx(
-          'flex items-center gap-1 text-xs',
-          isStreaming ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-400'
-        )}
-      >
+      <div className="flex items-center justify-between px-4 py-2">
         <span
           className={clsx(
-            'h-1.5 w-1.5 rounded-full',
-            isStreaming ? 'bg-emerald-500' : 'bg-neutral-400'
+            'flex items-center gap-1 text-xs',
+            isStreaming ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-400'
           )}
-        />
-        {isStreaming ? 'streaming' : 'stopped'}
-      </span>
+        >
+          <span className={clsx('h-1.5 w-1.5 rounded-full', isStreaming ? 'bg-emerald-500' : 'bg-neutral-400')} />
+          {isStreaming ? 'streaming' : 'stopped'} · {filteredLines.length} lines
+        </span>
+        <button
+          type="button"
+          onClick={() => void copyLogs()}
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        >
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+          {copied ? 'Copied' : 'Copy logs'}
+        </button>
+      </div>
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto bg-neutral-950 px-4 py-3 font-mono text-xs text-neutral-200"
