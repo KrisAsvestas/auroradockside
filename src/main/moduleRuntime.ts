@@ -35,6 +35,7 @@ export async function runModuleLifecycleHook(moduleId: string, hook: AuroraModul
   if (typeof handler !== 'function') return false
   const directory = options.directory
   const urls = options.projectName ? projectUrls(options.projectName) : undefined
+  const projectConfig = directory ? await getProjectConfig(directory) : undefined
   const run = async (label: string, command: string, args: string[]): Promise<void> => {
     if (options.sender && options.operationId) {
       if (!options.sender.isDestroyed()) options.sender.send('terminal:data', { operationId: options.operationId, stream: 'stdout', chunk: `\n[${manifest.name}] ${label}\n` })
@@ -49,6 +50,7 @@ export async function runModuleLifecycleHook(moduleId: string, hook: AuroraModul
     projectName: options.projectName,
     toolId: options.toolId,
     settings: Object.freeze({ ...(options.settings ?? {}) }),
+    environment: projectConfig ? Object.freeze({ php: projectConfig.php, node: projectConfig.node, webserver: projectConfig.webserver, database: projectConfig.database, databaseVersion: projectConfig.databaseVersion, docroot: projectConfig.docroot }) : undefined,
     urls: urls ? Object.freeze(urls) : undefined,
     run,
     ensureRouter,

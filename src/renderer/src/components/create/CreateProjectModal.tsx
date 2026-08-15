@@ -224,7 +224,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                 <div>
                   <label className={labelClass}>Project type</label>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {applicationModules.map((module) => ({ value: module.id, label: module.name, defaults: module.defaults })).map((t) => {
+                    {applicationModules.map((module) => ({ value: module.id, label: module.name, defaults: module.defaults, creation: module.creation })).map((t) => {
                       const Icon = TYPE_ICONS[t.value] ?? Boxes
                       const isSelected = projectType === t.value
 
@@ -234,6 +234,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                           type="button"
                           onClick={() => {
                             setProjectType(t.value)
+                            setPhpVersion(t.creation?.phpVersions?.[0] ?? '8.4')
                             if (!docroot.trim() && t.defaults?.docroot) setDocroot(t.defaults.docroot)
                           }}
                           className={clsx(
@@ -272,7 +273,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                     <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">Aurora core owns the runtime; the application is a module layered on top.</p>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div><label className={labelClass}>PHP</label><select className={fieldClass} value={phpVersion} onChange={(e)=>setPhpVersion(e.target.value)}>{['8.2','8.3','8.4','8.5'].map(v=><option key={v}>{v}</option>)}</select></div>
+                    <div><label className={labelClass}>PHP</label><select className={fieldClass} value={phpVersion} onChange={(e)=>setPhpVersion(e.target.value)}>{(selectedModule?.creation?.phpVersions ?? ['8.2','8.3','8.4','8.5']).map(v=><option key={v}>{v}</option>)}</select></div>
                     <div><label className={labelClass}>Node.js</label><select className={fieldClass} value={nodeVersion} onChange={(e)=>setNodeVersion(e.target.value)}>{['20','22','24'].map(v=><option key={v}>{v}</option>)}</select></div>
                     <div><label className={labelClass}>Web server</label><select className={fieldClass} value={webServer} onChange={(e)=>setWebServer(e.target.value as 'nginx'|'apache')}><option value="nginx">nginx</option><option value="apache">Apache</option></select></div>
                     <div><label className={labelClass}>Database</label><select className={fieldClass} value={`${database}:${databaseVersion}`} onChange={(e)=>{const [kind,version]=e.target.value.split(':');setDatabase(kind as 'mariadb'|'mysql'|'postgres');setDatabaseVersion(version)}}>{selectedModule?.creation?.databases?.includes('mariadb') !== false && <><option value="mariadb:11.8">MariaDB 11.8</option><option value="mariadb:10.11">MariaDB 10.11</option></>}{selectedModule?.creation?.databases?.includes('mysql') !== false && <><option value="mysql:8.4">MySQL 8.4</option><option value="mysql:8.0">MySQL 8.0</option></>}{selectedModule?.creation?.databases?.includes('postgres') !== false && <><option value="postgres:17">PostgreSQL 17</option><option value="postgres:16">PostgreSQL 16</option></>}</select></div>

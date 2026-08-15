@@ -132,9 +132,9 @@ async function renderCompose(c: AuroraConfig): Promise<string> {
 async function writePhpDockerfile(root: string, xdebug = false): Promise<void> {
   await writeFile(phpDockerfilePath(root), `ARG PHP_VERSION=8.4
 FROM php:${'${PHP_VERSION}'}-fpm-alpine
-RUN apk add --no-cache icu-dev libzip-dev libpng-dev libjpeg-turbo-dev freetype-dev oniguruma-dev postgresql-dev \
+RUN apk add --no-cache icu-dev libzip-dev libpng-dev libjpeg-turbo-dev freetype-dev oniguruma-dev postgresql-dev curl-dev libxml2-dev \
   && docker-php-ext-configure gd --with-freetype --with-jpeg \
-  && docker-php-ext-install -j2 mysqli pdo_mysql pdo_pgsql intl zip gd mbstring
+  && docker-php-ext-install -j2 mysqli pdo_mysql pdo_pgsql intl zip gd mbstring curl dom opcache
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 ${xdebug ? 'RUN apk add --no-cache $PHPIZE_DEPS linux-headers && pecl install xdebug && docker-php-ext-enable xdebug' : ''}
 `)
@@ -211,7 +211,9 @@ export async function createProject(root: string, name: string, type: string, do
   if (stack?.adminer !== false) modules.push('adminer')
   if (stack?.redis) modules.push('redis')
   if (stack?.mailpit) modules.push('mailpit')
-  const config: AuroraConfig = { name, type: normalizedType, docroot: defaultDocroot, php: stack?.phpVersion || '8.4', node: stack?.nodeVersion || '24', webserver: stack?.webServer || 'nginx', database: stack?.database || 'mariadb', databaseVersion: stack?.databaseVersion || '11.8', modules, moduleSettings: {}, primaryProtocol: 'https', xdebug: stack?.xdebug === true }
+  const phpVersion = stack?.phpVersion || application.creation?.phpVersions?.[0] || '8.4'
+  if (application.creation?.phpVersions?.length && !application.creation.phpVersions.includes(phpVersion)) throw new Error(`${application.name} does not support PHP ${phpVersion}`)
+  const config: AuroraConfig = { name, type: normalizedType, docroot: defaultDocroot, php: phpVersion, node: stack?.nodeVersion || '24', webserver: stack?.webServer || 'nginx', database: stack?.database || 'mariadb', databaseVersion: stack?.databaseVersion || '11.8', modules, moduleSettings: {}, primaryProtocol: 'https', xdebug: stack?.xdebug === true }
   await writeConfig(root, config); await writeWebServerConfig(root, config); await writePhpDockerfile(root, config.xdebug)
   const reg = await loadRegistry(); reg.projects[name] = root; await saveRegistry(reg)
 }

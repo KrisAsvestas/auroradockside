@@ -1,0 +1,7 @@
+{
+  "name": "@aurora/module-drupal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Drupal application module for Aurora Dockside",
+  "files": ["manifest.json", "main", "README.md"]
+}

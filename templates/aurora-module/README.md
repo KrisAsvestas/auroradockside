@@ -16,4 +16,4 @@ The resulting `.pac` file is written to `dist/module-catalog/`.
 
 Lifecycle exports are optional. `projectCreate` runs during initial provisioning, `projectStart` after the containers start, `projectRemove` before project-scoped removal, and `packageUninstall` before the installed package is deleted. A manifest entry in `project.tools` calls `projectTool(context)` with its `id` in `context.toolId`.
 
-The context provides `moduleId`, `hook`, `directory`, `projectName`, `settings`, `urls`, and `toolId`. It also provides `run(label, command, args)`, `ensureRouter()`, `setProjectMetadata(values)`, and `saveCredentials(values)`. Project-only values and helpers are unavailable to `packageUninstall`.
+The context provides `moduleId`, `hook`, `directory`, `projectName`, `settings`, `urls`, `environment`, and `toolId`. `environment` contains the project's PHP, Node.js, web-server, database, database-version, and document-root choices. The context also provides `run(label, command, args)`, `ensureRouter()`, `setProjectMetadata(values)`, and `saveCredentials(values)`. Project-only values and helpers are unavailable to `packageUninstall`.

@@ -51,7 +51,11 @@ export function validateModuleManifest(value: unknown): AuroraModuleManifest {
   if (!compatible(aurora.core, CORE_VERSION)) throw new Error(`Module requires Aurora Core '${aurora.core}', running '${CORE_VERSION}'`)
   if (!compatible(aurora.moduleApi, MODULE_API_VERSION)) throw new Error(`Module API '${aurora.moduleApi}' is incompatible with '${MODULE_API_VERSION}'`)
   if (m.main !== undefined) validateRelativePackagePath(m.main, 'main')
-  if (m.creation && typeof m.creation === 'object') validateSettings((m.creation as Record<string, unknown>).setup ?? [], 'creation.setup')
+  if (m.creation && typeof m.creation === 'object') {
+    const creation = m.creation as Record<string, unknown>
+    validateSettings(creation.setup ?? [], 'creation.setup')
+    if (creation.phpVersions !== undefined && (!Array.isArray(creation.phpVersions) || !creation.phpVersions.every((version) => typeof version === 'string' && /^\d+\.\d+$/.test(version)))) throw new Error('creation.phpVersions must contain PHP minor versions')
+  }
   if (m.project !== undefined) {
     if (!m.project || typeof m.project !== 'object' || Array.isArray(m.project)) throw new Error('project must be an object')
     const project = m.project as Record<string, unknown>

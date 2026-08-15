@@ -143,6 +143,7 @@ export interface AuroraModuleManifest {
   aurora: { core: string; moduleApi: string }
   creation?: {
     databases?: Array<'mariadb' | 'mysql' | 'postgres'>
+    phpVersions?: string[]
     setup?: AuroraModuleSetting[]
     intro?: { title: string; description: string; icon?: string }
   }

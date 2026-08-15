@@ -1,0 +1,34 @@
+{
+  "id": "drupal",
+  "name": "Drupal",
+  "version": "1.0.0",
+  "category": "application",
+  "description": "Drupal 11 CMS with Composer, Drush, and the recommended web-root layout.",
+  "main": "main/index.cjs",
+  "aurora": { "core": "2.0.0-alpha.24", "moduleApi": "1.0.0" },
+  "dependencies": [],
+  "conflicts": [],
+  "defaults": { "docroot": "web" },
+  "settings": [],
+  "creation": {
+    "databases": ["mariadb", "mysql", "postgres"],
+    "phpVersions": ["8.4", "8.3"],
+    "intro": {
+      "title": "Drupal 11 install",
+      "description": "Composer downloads Drupal and Drush, then Aurora configures the site automatically.",
+      "icon": "globe"
+    },
+    "setup": [
+      { "id": "site_name", "label": "Site name", "type": "text", "default": "", "placeholder": "My Drupal Site", "required": true, "icon": "title", "span": 2 },
+      { "id": "admin_user", "label": "Admin username", "type": "text", "default": "admin", "required": true, "icon": "user" },
+      { "id": "admin_password", "label": "Admin password", "type": "text", "default": "", "required": true, "secret": true, "icon": "key" },
+      { "id": "admin_email", "label": "Admin email", "type": "text", "default": "", "required": true, "placeholder": "admin@example.com", "icon": "mail", "span": 2 },
+      { "id": "profile", "label": "Installation profile", "type": "select", "default": "standard", "advanced": true, "icon": "settings", "options": ["standard", "minimal", "demo_umami"], "optionLabels": { "standard": "Standard", "minimal": "Minimal", "demo_umami": "Umami demo" } }
+    ]
+  },
+  "project": {
+    "adminPath": "/admin/",
+    "summary": { "metadataKey": "drupalVersion", "labels": {}, "fallback": "Drupal 11" },
+    "tools": [{ "id": "rebuild-cache", "label": "Rebuild Drupal cache" }]
+  }
+}

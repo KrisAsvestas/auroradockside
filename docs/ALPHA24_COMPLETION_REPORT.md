@@ -39,6 +39,18 @@ WordPress provisioning resides in `packages/aurora-module-wordpress`, including:
 
 Core contains no `type === 'wordpress'` or `moduleId === 'wordpress'` behavior.
 
+## Drupal module
+
+Drupal provisioning resides in `packages/aurora-module-drupal`, including:
+
+- Drupal 11's Composer-recommended `web/` document-root layout
+- PHP 8.4 and 8.3 compatibility constraints enforced in both the wizard and Core
+- MariaDB, MySQL, and PostgreSQL installation through Drush
+- Standard, Minimal, and Umami installation profiles
+- Credential persistence and Application Admin integration
+- A copyable **Rebuild Drupal cache** project tool
+- Drupal-required DOM, cURL, GD, PDO, OPcache, XML, and multilingual runtime support
+
 ## Verification
 
 Commands completed successfully:
@@ -51,7 +63,7 @@ npm run build:modules
 npx electron-builder --linux AppImage
 ```
 
-Automated result: 6 test files and 27 tests passed. Coverage includes:
+Automated result: 6 test files and 28 tests passed. Coverage includes:
 
 - Empty registry
 - Available local packages
@@ -66,6 +78,7 @@ Automated result: 6 test files and 27 tests passed. Coverage includes:
 - Application appearing after install and disappearing after uninstall
 - Existing-project missing-module state
 - Validation of the independently packaged WordPress contract
+- Validation and `.pac` installation of the independently packaged Drupal contract
 - Production compilation of the lifecycle IPC, preload, and renderer tool-action path
 - Generation of the embedded WordPress `.pac` catalog with the lifecycle-aware author tooling present
 

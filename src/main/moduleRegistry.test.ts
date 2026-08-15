@@ -77,6 +77,7 @@ describe('external module registry', () => {
     expect(() => validateModuleManifest({ ...manifest, main: '../outside.cjs' })).toThrow(/may not leave/)
     expect(() => validateModuleManifest({ ...manifest, dependencies: ['../escape'] })).toThrow(/module id array/)
     expect(() => validateModuleManifest({ ...manifest, project: { adminPath: 'admin' } })).toThrow(/must start with/)
+    expect(() => validateModuleManifest({ ...manifest, creation: { phpVersions: ['latest'] } })).toThrow(/PHP minor versions/)
   })
   it('rejects symbolic links in package paths', async () => {
     const userData = await temp('aurora-user-'); const source = await packageDir(); await mkdir(join(source, 'main')); await symlink('/tmp', join(source, 'main', 'escape'))
@@ -134,5 +135,15 @@ describe('external module registry', () => {
     const userData = await temp('aurora-user-')
     expect((await installModulePackage(archive, userData)).manifest.id).toBe('wordpress')
     expect((await getModuleRegistry(userData)).map((item) => item.id)).toEqual(['wordpress'])
+  })
+
+  it('accepts and packages the Drupal application module contract', async () => {
+    const packageRoot = resolve(process.cwd(), 'packages/aurora-module-drupal')
+    const actual = JSON.parse(await readFile(join(packageRoot, 'manifest.json'), 'utf8'))
+    expect(validateModuleManifest(actual)).toMatchObject({ id: 'drupal', defaults: { docroot: 'web' } })
+    const archive = join(await temp('aurora-pac-'), 'drupal.pac')
+    await execFileAsync('zip', ['-qr', archive, '.'], { cwd: packageRoot })
+    const userData = await temp('aurora-user-')
+    expect((await installModulePackage(archive, userData)).manifest.id).toBe('drupal')
   })
 })

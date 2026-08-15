@@ -162,10 +162,10 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
   const services = Object.values(project.services)
   const runningServices = services.filter((service) => service.status === 'running').length
 
-  const phpVersions =
-    project.php_version && !PHP_VERSIONS.includes(project.php_version)
-      ? [project.php_version, ...PHP_VERSIONS]
-      : PHP_VERSIONS
+  const supportedPhpVersions = applicationManifest?.creation?.phpVersions ?? PHP_VERSIONS
+  const phpVersions = project.php_version && !supportedPhpVersions.includes(project.php_version)
+    ? [project.php_version, ...supportedPhpVersions]
+    : supportedPhpVersions
 
   const currentDatabase = `${project.dbinfo.database_type}:${project.dbinfo.database_version}`
   const projectContribution = applicationManifest?.project
