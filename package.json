@@ -26,6 +26,7 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",
+    "build:appimage": "npm run build && electron-builder --linux AppImage",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
