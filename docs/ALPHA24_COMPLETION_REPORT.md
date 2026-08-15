@@ -14,6 +14,7 @@
 - Native `.pac` files are ZIP-compressed Aurora packages with `manifest.json` at archive root.
 - A `.pac` placed beside the AppImage or in its `modules` folder is discovered automatically and appears in the Modules screen.
 - Packaged applications also carry a generated `.pac` catalog in their application resources. The macOS DMG layout exposes the same catalog as an **Aurora Modules** folder while the copied `.app` retains its own embedded catalog after the DMG is ejected.
+- The `macOS release` GitHub Actions workflow builds universal DMG and ZIP artifacts, verifies the embedded catalog, emits checksums, and optionally signs/notarizes when Apple credentials are configured.
 - Linux packages use Aurora's 512×512 application icon and a synchronized `aurora-dockside` desktop filename, executable name, icon name, and `StartupWMClass`.
 - `.pac` inspection rejects encrypted entries, symbolic links, path traversal, absolute/drive paths, excessive entry counts, and expanded archives larger than 256 MiB before extraction.
 - Installation uses staging plus rollback-safe replacement, so a failed update preserves the currently installed module.
@@ -87,4 +88,4 @@ d2165af4b75ab888c6d35a750a449205123866231ba5e98e1cbe9bcaa8738f46  aurora-module-
 
 - Clean-registry install/remove behavior was exercised through the real registry implementation in automated temporary-directory tests. The live GUI smoke used the already installed local WordPress package and project `24`.
 - AppImage systems without working FUSE can use `--appimage-extract` and launch `squashfs-root/AppRun --no-sandbox`.
-- The embedded catalog and DMG layout are configured and the identical Linux application-resource layout was verified. A final signed/notarized `.app` and DMG must be built and inspected on macOS or a macOS CI runner.
+- The embedded catalog and DMG layout are configured and the identical Linux application-resource layout was verified. The macOS CI workflow must still complete once to validate the final Apple-generated DMG and `.app` artifacts.
