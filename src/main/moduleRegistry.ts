@@ -65,6 +65,13 @@ export function validateModuleManifest(value: unknown): AuroraModuleManifest {
         if (action.hiddenValues !== undefined && !Array.isArray(action.hiddenValues)) throw new Error('Invalid project action hiddenValues')
       }
     }
+    if (project.tools !== undefined) {
+      if (!Array.isArray(project.tools)) throw new Error('project.tools must be an array')
+      for (const toolValue of project.tools) {
+        const tool = toolValue as Record<string, unknown>
+        if (!tool || typeof tool !== 'object' || typeof tool.id !== 'string' || !/^[a-z][a-z0-9_-]*$/.test(tool.id) || typeof tool.label !== 'string' || !tool.label.trim()) throw new Error('Invalid project tool')
+      }
+    }
   }
   return value as AuroraModuleManifest
 }

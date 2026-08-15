@@ -35,9 +35,13 @@ export function useInstallAvailableModule(): UseMutationResult<void, Error, stri
 export function useUninstallModulePackage(): UseMutationResult<void, Error, string> {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id) => window.api.modules.uninstallPackage(id),
+    mutationFn: (id) => window.api.modules.uninstallPackage(beginOperation(`Uninstall ${id}`), id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['modules', 'registry'] })
   })
+}
+
+export function useRunModuleTool(name: string): UseMutationResult<void, Error, { moduleId: string; toolId: string; label: string }> {
+  return useMutation({ mutationFn: ({ moduleId, toolId, label }) => window.api.modules.runProjectTool(beginOperation(label), name, moduleId, toolId) })
 }
 
 export function useInstalledModules(name: string): UseQueryResult<AuroraInstalledModule[], Error> {

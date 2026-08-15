@@ -1,0 +1,20 @@
+{
+  "id": "example-module",
+  "name": "Example Module",
+  "version": "1.0.0",
+  "category": "application",
+  "description": "Describe what this Aurora module installs.",
+  "main": "main/index.cjs",
+  "aurora": { "core": "2.0.0-alpha.24", "moduleApi": "1.0.0" },
+  "dependencies": [],
+  "conflicts": [],
+  "defaults": { "docroot": "" },
+  "settings": [],
+  "creation": {
+    "databases": ["mariadb", "mysql", "postgres"],
+    "setup": []
+  },
+  "project": {
+    "tools": [{ "id": "example-action", "label": "Run example action" }]
+  }
+}

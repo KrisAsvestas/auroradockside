@@ -21,6 +21,9 @@
 - Application choices in New Project come only from the installed-module registry.
 - Project actions and metadata summaries are declarative module contributions. Core no longer contains WordPress-specific admin or multisite presentation.
 - The `moduleMetadata` capability is the versioned bridge used by trusted module lifecycle hooks.
+- The Module API now executes `projectCreate`, `projectStart`, `projectRemove`, `packageUninstall`, and manifest-declared project tools through one guarded runtime context.
+- Lifecycle command output is streamed into Aurora's copyable diagnostic terminal and emits one final operation result.
+- `templates/aurora-module` and `npm run module:new -- <id> "Display Name"` provide the reusable starting point for new modules.
 - Alpha 23's legacy `wordpressMultisite` configuration value is read only by a compatibility adapter and exposed as generic module metadata. It is not used to identify the application.
 
 ## WordPress module
@@ -44,6 +47,7 @@ Commands completed successfully:
 npm run typecheck
 npm run test:run
 npm run build
+npm run build:modules
 npx electron-builder --linux AppImage
 ```
 
@@ -62,6 +66,8 @@ Automated result: 6 test files and 27 tests passed. Coverage includes:
 - Application appearing after install and disappearing after uninstall
 - Existing-project missing-module state
 - Validation of the independently packaged WordPress contract
+- Production compilation of the lifecycle IPC, preload, and renderer tool-action path
+- Generation of the embedded WordPress `.pac` catalog with the lifecycle-aware author tooling present
 
 Live project smoke result for project `24`:
 

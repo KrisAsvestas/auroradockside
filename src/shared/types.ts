@@ -161,7 +161,7 @@ export interface AuroraModuleManifest {
       labels: Record<string, string>
       fallback?: string
     }
-    tools?: Array<{ id: string; label: string; hook: AuroraModuleLifecycleHook }>
+    tools?: Array<{ id: string; label: string }>
   }
   compose?: {
     service: string
@@ -171,7 +171,7 @@ export interface AuroraModuleManifest {
   }
 }
 
-export type AuroraModuleLifecycleHook = 'projectCreate' | 'projectStart' | 'projectRemove' | 'packageUninstall'
+export type AuroraModuleLifecycleHook = 'projectCreate' | 'projectStart' | 'projectRemove' | 'packageUninstall' | 'projectTool'
 
 export interface AuroraModuleCommand {
   command: string

@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile)
 const EXTRA_PATH_DIRS = ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']
 export const AURORA_ENV = { ...process.env, PATH: [...EXTRA_PATH_DIRS, process.env.PATH].join(':') }
 
-type AuroraConfig = {
+export type AuroraConfig = {
   name: string
   type: string
   docroot: string

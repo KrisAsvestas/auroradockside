@@ -90,7 +90,7 @@ const api = {
       ipcRenderer.invoke('modules:pickAndInstallPackage'),
     installPackage: (source: string): Promise<AuroraModuleInstallResult> =>
       ipcRenderer.invoke('modules:installPackage', source),
-    uninstallPackage: (id: string): Promise<void> => ipcRenderer.invoke('modules:uninstallPackage', id),
+    uninstallPackage: (operationId: string, id: string): Promise<void> => ipcRenderer.invoke('modules:uninstallPackage', operationId, id),
     install: (
       operationId: string,
       name: string,
@@ -98,7 +98,9 @@ const api = {
       settings: Record<string, string | number | boolean>
     ): Promise<void> => ipcRenderer.invoke('modules:install', operationId, name, moduleId, settings),
     remove: (operationId: string, name: string, moduleId: string): Promise<void> =>
-      ipcRenderer.invoke('modules:remove', operationId, name, moduleId)
+      ipcRenderer.invoke('modules:remove', operationId, name, moduleId),
+    runProjectTool: (operationId: string, name: string, moduleId: string, toolId: string): Promise<void> =>
+      ipcRenderer.invoke('modules:runProjectTool', operationId, name, moduleId, toolId)
   },
   logs: {
     start: (operationId: string, name: string, service: string): Promise<void> =>

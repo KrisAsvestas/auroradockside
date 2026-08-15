@@ -20,6 +20,7 @@ import {
   Globe2,
   LockKeyhole,
   Radio
+  ,Wrench
 } from 'lucide-react'
 import type { AuroraSiteCredentials, EnvironmentUpdate } from '@shared/types'
 import {
@@ -37,7 +38,7 @@ import { DeveloperServices } from './DeveloperServices'
 import { DeleteProjectModal } from './DeleteProjectModal'
 import { LogViewer } from '../logs/LogViewer'
 import { useAppStore } from '../../stores/appStore'
-import { useModuleRegistry } from '../../hooks/useModules'
+import { useModuleRegistry, useRunModuleTool } from '../../hooks/useModules'
 
 const NODE_VERSIONS = ['20', '22', '24']
 
@@ -85,6 +86,7 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
   const restartProject = useRestartProject()
   const deleteProject = useDeleteProject()
   const updateEnvironment = useUpdateEnvironment()
+  const runModuleTool = useRunModuleTool(name)
   const selectProject = useAppStore((s) => s.selectProject)
   const [isLogsOpen, setIsLogsOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
@@ -112,7 +114,8 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
     startProject.isPending ||
     stopProject.isPending ||
     restartProject.isPending ||
-    deleteProject.isPending
+    deleteProject.isPending ||
+    runModuleTool.isPending
 
   const isEnvUpdating = updateEnvironment.isPending || restartProject.isPending
 
@@ -258,6 +261,11 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
                 <a key={action.id} href={`${project.primary_url.replace(/\/$/, '')}${action.path}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/[0.15]">
                   <Globe2 size={14} /> {action.label}
                 </a>
+              ))}
+              {applicationManifest?.project?.tools?.map((tool) => (
+                <button key={tool.id} type="button" disabled={isBusy} onClick={() => runModuleTool.mutate({ moduleId: applicationManifest.id, toolId: tool.id, label: tool.label })} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/[0.15]">
+                  <Wrench size={14} /> {tool.label}
+                </button>
               ))}
               <button
                 type="button"
