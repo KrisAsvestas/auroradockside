@@ -9,6 +9,8 @@ import type {
   AuroraProjectSummary,
   AuroraSnapshot,
   AuroraSiteCredentials,
+  AuroraRemoteSiteProfile,
+  AuroraRemoteSiteStatus,
   AuroraStackOptions,
   EnvironmentUpdate,
   LogDataEvent,
@@ -141,6 +143,17 @@ const api = {
   secrets: {
     getSiteCredentials: (approot: string): Promise<AuroraSiteCredentials | null> =>
       ipcRenderer.invoke('secrets:getSiteCredentials', approot)
+  },
+  remote: {
+    getProfile: (name: string): Promise<AuroraRemoteSiteProfile | null> =>
+      ipcRenderer.invoke('remote:getProfile', name),
+    saveProfile: (name: string, profile: AuroraRemoteSiteProfile): Promise<void> =>
+      ipcRenderer.invoke('remote:saveProfile', name, profile),
+    pickPrivateKey: (): Promise<string | null> => ipcRenderer.invoke('remote:pickPrivateKey'),
+    test: (name: string, profile: AuroraRemoteSiteProfile): Promise<AuroraRemoteSiteStatus> =>
+      ipcRenderer.invoke('remote:test', name, profile),
+    pull: (operationId: string, name: string): Promise<void> =>
+      ipcRenderer.invoke('remote:pull', operationId, name)
   },
   zoom: {
     in: (): Promise<number> => ipcRenderer.invoke('window:zoomIn'),

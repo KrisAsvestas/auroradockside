@@ -36,6 +36,7 @@ import { DatabaseSection } from './DatabaseSection'
 import { ModulesSection } from './ModulesSection'
 import { DeveloperServices } from './DeveloperServices'
 import { DeleteProjectModal } from './DeleteProjectModal'
+import { RemoteSiteSection } from './RemoteSiteSection'
 import { LogViewer } from '../logs/LogViewer'
 import { useAppStore } from '../../stores/appStore'
 import { useModuleRegistry, useRunModuleTool } from '../../hooks/useModules'
@@ -468,6 +469,8 @@ export function ProjectDetail({ name }: { name: string }): React.JSX.Element {
           </dl>
         </section>
       )}
+
+      <RemoteSiteSection name={project.name} approot={project.approot} projectType={project.type} />
 
       {isRunning && <DeveloperServices project={project} />}
 

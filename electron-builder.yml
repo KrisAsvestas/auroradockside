@@ -4,6 +4,7 @@ beforePack: scripts/package-modules.cjs
 directories:
   buildResources: build
 files:
+  - '!website/**'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'

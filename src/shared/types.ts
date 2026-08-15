@@ -83,6 +83,29 @@ export interface AuroraSiteCredentials {
   email: string
 }
 
+export interface AuroraRemoteSiteProfile {
+  siteUrl: string
+  wordpressUsername: string
+  applicationPassword?: string
+  sshHost: string
+  sshPort: number
+  sshUsername: string
+  privateKeyPath: string
+  remotePath: string
+  configured?: boolean
+}
+
+export interface AuroraRemoteSiteStatus {
+  connected: boolean
+  platform: 'wordpress'
+  siteName: string
+  siteUrl: string
+  wordpressVersion: string
+  phpVersion: string
+  databaseVersion: string
+  connectorVersion: string
+}
+
 export interface AuroraStackOptions {
   phpVersion: string
   nodeVersion: string
