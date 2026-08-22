@@ -114,6 +114,8 @@ EOF
 done
 
 cp /tmp/wp-cli.phar "$root/usr/local/bin/wp-cli.phar"
+mkdir -p "$root/usr/share/aurora"
+cp /tmp/adminer.php "$root/usr/share/aurora/adminer.php"
 cat > "$stage/bin/wp" <<'EOF'
 #!/bin/sh
 runtime_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -136,6 +138,7 @@ cat > "$stage/runtime.template.json" <<EOF
     { "id": "mariadb", "version": "$mariadb_version", "executable": "bin/mariadbd" },
     { "id": "mariadb-client", "version": "$mariadb_version", "executable": "bin/mariadb" },
     { "id": "mariadb-dump", "version": "$mariadb_version", "executable": "bin/mariadb-dump" },
+    { "id": "adminer", "version": "6.0.1", "executable": "root/usr/share/aurora/adminer.php" },
     { "id": "wp-cli", "version": "2.12.0", "executable": "bin/wp" }
   ]
 }

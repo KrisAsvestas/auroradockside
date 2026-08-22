@@ -116,8 +116,10 @@ async function assertNativeStack(
     throw new Error('Installed native runtime does not provide MariaDB 11.8.')
   if (!versions.has('nginx') || !versions.has('wp-cli'))
     throw new Error('Installed native runtime is missing nginx or WP-CLI.')
-  if (stack.adminer !== false || stack.redis || stack.mailpit || stack.xdebug)
-    throw new Error('Adminer, Redis, Mailpit, and Xdebug are not enabled for Aurora Native yet.')
+  if (stack.adminer !== false && !versions.has('adminer'))
+    throw new Error('Installed native runtime does not provide Adminer.')
+  if (stack.redis || stack.mailpit || stack.xdebug)
+    throw new Error('Redis, Mailpit, and Xdebug are not enabled for Aurora Native yet.')
 }
 
 async function loadRegistry(): Promise<Registry> {
@@ -532,10 +534,11 @@ export async function describeProject(name: string): Promise<AuroraProjectDetail
     firefox_trust_status: c.runtimeEngine === 'native' ? 'unknown' : await firefoxTrustStatus(),
     chromium_trust_status: c.runtimeEngine === 'native' ? 'unknown' : await chromiumTrustStatus(),
     module_metadata: moduleMetadata,
-    adminer_url:
-      c.runtimeEngine === 'container' && c.modules.includes('adminer')
-        ? `https://adminer.${projectHost(c.name)}`
-        : undefined,
+    adminer_url: c.modules.includes('adminer')
+      ? c.runtimeEngine === 'native'
+        ? `${urlSet.http}/__aurora/adminer/`
+        : `https://adminer.${projectHost(c.name)}`
+      : undefined,
     services,
     xdebug_enabled: c.xdebug === true,
     runtime_engine: c.runtimeEngine ?? 'container',

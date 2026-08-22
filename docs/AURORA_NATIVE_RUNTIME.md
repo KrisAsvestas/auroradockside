@@ -12,7 +12,7 @@ Each signed runtime bundle contains a `runtime.json` manifest plus versioned exe
 
 Runtime archives are created from a staging directory with `npm run build:native-runtime -- <staging-directory> <output.tar.gz>`. The packager resolves every executable inside the staging root, calculates its SHA-256 checksum, writes the immutable `runtime.json`, excludes the build template, and creates the distributable archive. Dockside independently verifies those checksums before declaring a runtime available.
 
-The first reproducible bundle target is Linux x64. Run `npm run build:native-linux-x64` on a Docker-capable build machine. Docker is used only to create the portable artifact; users of that artifact do not need Docker. The recipe pins PHP 8.5.9, nginx 1.30.4, MariaDB 11.8.8, and WP-CLI 2.12.0 with their runtime libraries, runs executable, PHP-extension, and database-initialization smoke checks outside the build container, and then invokes the normal checksum packager.
+The first reproducible bundle target is Linux x64. Run `npm run build:native-linux-x64` on a Docker-capable build machine. Docker is used only to create the portable artifact; users of that artifact do not need Docker. The recipe pins PHP 8.5.9, nginx 1.30.4, MariaDB 11.8.8, WP-CLI 2.12.0, and Adminer 6.0.1 with their runtime libraries, runs executable, PHP-extension, database-initialization, and PHP syntax smoke checks outside the build container, and then invokes the normal checksum packager.
 
 Dockside can install a bundled runtime or a user-selected runtime archive from Settings. Installation rejects absolute and parent-traversing archive entries, rejects symbolic links, verifies the target platform and architecture, and verifies every declared executable checksum before atomically replacing an older runtime. Electron packages include matching archives from `dist/native-runtime` when they are present at packaging time.
 
@@ -27,7 +27,7 @@ Every project receives reserved loopback ports, generated service configuration,
 3. Linux x64 bundle with PHP 8.5, nginx, MariaDB 11.8, and WP-CLI.
 4. Native project lifecycle and single-site WordPress provisioning.
 5. Native service logs, compressed snapshots, and database import/export.
-6. Native database administration.
+6. Native database administration with loopback-only automatic login.
 7. macOS arm64/x64 and Windows x64 bundles.
 8. Additional PHP/database versions, Apache, Drupal, Node.js, and developer services.
 

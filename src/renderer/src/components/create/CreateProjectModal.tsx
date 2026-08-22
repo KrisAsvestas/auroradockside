@@ -79,7 +79,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
       setWebServer('nginx')
       setDatabase('mariadb')
       setDatabaseVersion('11.8')
-      setAdminer(false)
+      setAdminer(true)
       setRedis(false)
       setMailpit(false)
       setXdebug(false)
@@ -459,7 +459,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                           >
                             <input
                               type="checkbox"
-                              disabled={runtimeEngine === 'native'}
+                              disabled={runtimeEngine === 'native' && label !== 'Adminer'}
                               checked={value as boolean}
                               onChange={(e) => (setter as (v: boolean) => void)(e.target.checked)}
                             />

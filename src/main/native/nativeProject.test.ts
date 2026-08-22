@@ -7,6 +7,7 @@ import { promisify } from 'util'
 import { describe, expect, it } from 'vitest'
 import {
   renderMariaDbConfig,
+  renderNativeAdminerBootstrap,
   renderNginxConfig,
   renderPhpFpmConfig,
   startNativeProject,
@@ -53,6 +54,16 @@ describe('native project configuration', () => {
     expect(config).toContain('bind-address=127.0.0.1')
     expect(config).toContain('port=41003')
     expect(config).toContain('/.aurora/native/data/mariadb')
+  })
+  it('creates a loopback Adminer endpoint with project database credentials', () => {
+    expect(renderNginxConfig(project)).toContain('location = /__aurora/adminer/')
+    const bootstrap = renderNativeAdminerBootstrap({
+      ...project,
+      installedRuntimeRoot: '/tmp/aurora-runtime'
+    })
+    expect(bootstrap).toContain("value = '127.0.0.1:41003'")
+    expect(bootstrap).toContain("username.value = 'db'")
+    expect(bootstrap).toContain('/tmp/aurora-runtime/root/usr/share/aurora/adminer.php')
   })
 })
 
@@ -170,6 +181,15 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
         { cwd: root, env: process.env }
       )
       expect(restored.stdout.trim()).toBe('Aurora native smoke')
+
+      const adminerResponse = await fetch(
+        `http://127.0.0.1:${definition.ports.http}/__aurora/adminer/`
+      )
+      const adminerHtml = await adminerResponse.text()
+      expect(adminerResponse.ok).toBe(true)
+      expect(adminerHtml).toContain('Adminer')
+      expect(adminerHtml).toContain("username.value = 'db'")
+      expect(adminerHtml).toContain("value = '127.0.0.1:")
     } finally {
       await stopNativeProject(definition)
     }

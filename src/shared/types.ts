@@ -2,7 +2,20 @@ export type ProjectStatus = 'running' | 'stopped' | 'paused' | 'starting' | 'sto
 export type AuroraRuntimeEngine = 'container' | 'native'
 
 export interface AuroraNativeRuntimeComponent {
-  id: 'php' | 'nginx' | 'apache' | 'mariadb' | 'mysql' | 'postgres' | 'node' | 'composer' | 'wp-cli' | 'drush'
+  id:
+    | 'php'
+    | 'nginx'
+    | 'apache'
+    | 'mariadb'
+    | 'mariadb-client'
+    | 'mariadb-dump'
+    | 'mysql'
+    | 'postgres'
+    | 'node'
+    | 'composer'
+    | 'wp-cli'
+    | 'drush'
+    | 'adminer'
   version: string
   executable: string
   sha256: string
@@ -18,8 +31,20 @@ export interface AuroraNativeRuntimeManifest {
 
 export interface AuroraRuntimeStatus {
   selectedEngine: AuroraRuntimeEngine
-  container: { available: boolean; provider: 'docker' | 'podman' | null; version?: string; reason?: string }
-  native: { available: boolean; platform: string; arch: string; runtimeVersion?: string; components: AuroraNativeRuntimeComponent[]; reason?: string }
+  container: {
+    available: boolean
+    provider: 'docker' | 'podman' | null
+    version?: string
+    reason?: string
+  }
+  native: {
+    available: boolean
+    platform: string
+    arch: string
+    runtimeVersion?: string
+    components: AuroraNativeRuntimeComponent[]
+    reason?: string
+  }
 }
 
 export type AuroraRuntimeComponentId = AuroraNativeRuntimeComponent['id']
@@ -189,7 +214,6 @@ export interface AuroraSnapshot {
   Created: string
 }
 
-
 export type AuroraModuleCategory = 'application' | 'service' | 'tool'
 export type AuroraModuleSettingType = 'boolean' | 'select' | 'text' | 'number'
 
@@ -252,7 +276,8 @@ export interface AuroraModuleManifest {
   }
 }
 
-export type AuroraModuleLifecycleHook = 'projectCreate' | 'projectStart' | 'projectRemove' | 'packageUninstall' | 'projectTool'
+export type AuroraModuleLifecycleHook =
+  'projectCreate' | 'projectStart' | 'projectRemove' | 'packageUninstall' | 'projectTool'
 
 export interface AuroraModuleCommand {
   command: string

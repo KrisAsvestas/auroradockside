@@ -10,7 +10,8 @@ import type {
   AuroraRuntimeUpdateStatus
 } from '../shared/types'
 
-const catalogUrl = process.env.AURORA_RUNTIME_CATALOG_URL || 'https://auroradockside.com/runtime/catalog.json'
+const catalogUrl =
+  process.env.AURORA_RUNTIME_CATALOG_URL || 'https://auroradockside.com/runtime/catalog.json'
 const publicKeyPem = process.env.AURORA_RUNTIME_CATALOG_PUBLIC_KEY
 
 function compareVersions(left: string, right: string): number {
@@ -25,13 +26,31 @@ function compareVersions(left: string, right: string): number {
 export function validateRuntimeCatalog(value: unknown): AuroraRuntimeCatalog {
   if (!value || typeof value !== 'object') throw new Error('Runtime catalog must be an object.')
   const catalog = value as Record<string, unknown>
-  if (catalog.schema !== 1 || typeof catalog.generatedAt !== 'string' || !Array.isArray(catalog.releases))
+  if (
+    catalog.schema !== 1 ||
+    typeof catalog.generatedAt !== 'string' ||
+    !Array.isArray(catalog.releases)
+  )
     throw new Error('Unsupported runtime catalog.')
   const releases = catalog.releases.map((entry) => {
     if (!entry || typeof entry !== 'object') throw new Error('Invalid runtime catalog release.')
     const release = entry as Record<string, unknown>
     if (
-      !['php', 'nginx', 'apache', 'mariadb', 'mysql', 'postgres', 'node', 'composer', 'wp-cli', 'drush'].includes(String(release.component)) ||
+      ![
+        'php',
+        'nginx',
+        'apache',
+        'mariadb',
+        'mariadb-client',
+        'mariadb-dump',
+        'mysql',
+        'postgres',
+        'node',
+        'composer',
+        'wp-cli',
+        'drush',
+        'adminer'
+      ].includes(String(release.component)) ||
       typeof release.version !== 'string' ||
       !['linux', 'darwin', 'win32'].includes(String(release.platform)) ||
       !['x64', 'arm64'].includes(String(release.arch)) ||
@@ -40,7 +59,8 @@ export function validateRuntimeCatalog(value: unknown): AuroraRuntimeCatalog {
       !release.url.startsWith('https://') ||
       typeof release.sha256 !== 'string' ||
       !/^[a-f0-9]{64}$/i.test(release.sha256)
-    ) throw new Error('Invalid runtime catalog release.')
+    )
+      throw new Error('Invalid runtime catalog release.')
     return release as unknown as AuroraRuntimeCatalogRelease
   })
   return { schema: 1, generatedAt: catalog.generatedAt, releases }
@@ -53,12 +73,20 @@ export function findRuntimeUpdates(
   arch: string
 ): AuroraRuntimeUpdate[] {
   return installed.flatMap((component) => {
-    const candidates = catalog.releases.filter((release) =>
-      release.component === component.id && release.platform === platform && release.arch === arch
+    const candidates = catalog.releases.filter(
+      (release) =>
+        release.component === component.id && release.platform === platform && release.arch === arch
     )
     const latest = candidates.sort((a, b) => compareVersions(b.version, a.version))[0]
     return latest && compareVersions(latest.version, component.version) > 0
-      ? [{ component: component.id, installedVersion: component.version, availableVersion: latest.version, channel: latest.channel }]
+      ? [
+          {
+            component: component.id,
+            installedVersion: component.version,
+            availableVersion: latest.version,
+            channel: latest.channel
+          }
+        ]
       : []
   })
 }
@@ -76,7 +104,8 @@ async function remoteCatalog(): Promise<AuroraRuntimeCatalog> {
       fetch(catalogUrl, { signal: controller.signal }),
       fetch(`${catalogUrl}.sig`, { signal: controller.signal })
     ])
-    if (!catalogResponse.ok || !signatureResponse.ok) throw new Error('Runtime catalog server is unavailable.')
+    if (!catalogResponse.ok || !signatureResponse.ok)
+      throw new Error('Runtime catalog server is unavailable.')
     const body = Buffer.from(await catalogResponse.arrayBuffer())
     const signature = Buffer.from((await signatureResponse.text()).trim(), 'base64')
     if (!verify(null, body, createPublicKey(publicKeyPem), signature))
@@ -87,7 +116,9 @@ async function remoteCatalog(): Promise<AuroraRuntimeCatalog> {
   }
 }
 
-export async function getRuntimeUpdates(installed: AuroraNativeRuntimeComponent[]): Promise<AuroraRuntimeUpdateStatus> {
+export async function getRuntimeUpdates(
+  installed: AuroraNativeRuntimeComponent[]
+): Promise<AuroraRuntimeUpdateStatus> {
   const cacheDirectory = join(app.getPath('userData'), 'runtime-catalog')
   const cachePath = join(cacheDirectory, 'catalog.json')
   let source: AuroraRuntimeUpdateStatus['source'] = 'bundled'

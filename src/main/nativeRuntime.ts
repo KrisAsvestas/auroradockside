@@ -15,12 +15,15 @@ const componentIds = new Set([
   'nginx',
   'apache',
   'mariadb',
+  'mariadb-client',
+  'mariadb-dump',
   'mysql',
   'postgres',
   'node',
   'composer',
   'wp-cli',
-  'drush'
+  'drush',
+  'adminer'
 ])
 
 export function validateNativeRuntimeManifest(value: unknown): AuroraNativeRuntimeManifest {

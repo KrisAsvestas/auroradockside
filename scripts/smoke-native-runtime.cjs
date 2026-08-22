@@ -67,6 +67,15 @@ if (extensions.error || extensions.status !== 0)
   throw extensions.error || new Error(`PHP database extensions failed: ${extensions.stderr}`)
 process.stdout.write('PHP mysqli and pdo_mysql extensions OK\n')
 
+const adminer = spawnSync(
+  join(root, 'bin/php'),
+  ['-l', join(root, 'root/usr/share/aurora/adminer.php')],
+  { encoding: 'utf8' }
+)
+if (adminer.error || adminer.status !== 0)
+  throw adminer.error || new Error(`Adminer PHP syntax check failed: ${adminer.stderr}`)
+process.stdout.write('Adminer 6.0.1 PHP syntax OK\n')
+
 const databaseDirectory = mkdtempSync(join(tmpdir(), 'aurora-native-mariadb-'))
 const temporaryDirectory = mkdtempSync(join(tmpdir(), 'aurora-native-mariadb-tmp-'))
 try {
