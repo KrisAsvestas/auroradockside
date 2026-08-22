@@ -1,0 +1,77 @@
+name: Linux native release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build portable native runtime
+        run: npm run build:native-linux-x64
+
+      - name: Build AppImage with modules and native runtime
+        run: npm run build:appimage
+
+      - name: Verify embedded release payload
+        run: |
+          test -f dist/native-runtime/aurora-native-0.1.0-linux-x64.tar.gz
+          test -f dist/linux-unpacked/resources/native-runtime/aurora-native-0.1.0-linux-x64.tar.gz
+          cmp dist/native-runtime/aurora-native-0.1.0-linux-x64.tar.gz dist/linux-unpacked/resources/native-runtime/aurora-native-0.1.0-linux-x64.tar.gz
+          test -f dist/linux-unpacked/resources/module-catalog/wordpress-1.2.0.pac
+          test -f dist/linux-unpacked/resources/module-catalog/drupal-1.0.0.pac
+
+      - name: Create checksums
+        run: |
+          sha256sum \
+            dist/*.AppImage \
+            dist/native-runtime/*.tar.gz \
+            dist/module-catalog/*.pac > dist/SHA256SUMS-linux.txt
+          cat dist/SHA256SUMS-linux.txt
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-dockside-linux-x64
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            dist/*.AppImage
+            dist/native-runtime/*.tar.gz
+            dist/module-catalog/*.pac
+            dist/SHA256SUMS-linux.txt
+
+      - name: Publish GitHub prerelease
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --prerelease \
+            --title "Aurora Dockside ${GITHUB_REF_NAME}" \
+            --notes "Linux testing release with the bundled Aurora Native runtime, WordPress and Drupal PAC modules, native logs, database portability, and automatic Adminer access." \
+            dist/*.AppImage \
+            dist/native-runtime/*.tar.gz \
+            dist/module-catalog/*.pac \
+            dist/SHA256SUMS-linux.txt
