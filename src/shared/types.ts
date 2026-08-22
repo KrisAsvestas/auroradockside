@@ -1,4 +1,26 @@
 export type ProjectStatus = 'running' | 'stopped' | 'paused' | 'starting' | 'stopping' | string
+export type AuroraRuntimeEngine = 'container' | 'native'
+
+export interface AuroraNativeRuntimeComponent {
+  id: 'php' | 'nginx' | 'apache' | 'mariadb' | 'mysql' | 'postgres' | 'node' | 'composer' | 'wp-cli' | 'drush'
+  version: string
+  executable: string
+  sha256: string
+}
+
+export interface AuroraNativeRuntimeManifest {
+  schema: 1
+  runtimeVersion: string
+  platform: 'linux' | 'darwin' | 'win32'
+  arch: 'x64' | 'arm64'
+  components: AuroraNativeRuntimeComponent[]
+}
+
+export interface AuroraRuntimeStatus {
+  selectedEngine: AuroraRuntimeEngine
+  container: { available: boolean; provider: 'docker' | 'podman' | null; version?: string; reason?: string }
+  native: { available: boolean; platform: string; arch: string; runtimeVersion?: string; components: AuroraNativeRuntimeComponent[]; reason?: string }
+}
 
 export interface AuroraProjectSummary {
   name: string

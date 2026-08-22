@@ -11,6 +11,7 @@ import { registerCreateIpc } from './ipc/create'
 import { registerWindowIpc } from './ipc/window'
 import { registerSecretsIpc } from './ipc/secrets'
 import { registerRemoteIpc } from './ipc/remote'
+import { registerRuntimeIpc } from './ipc/runtime'
 import { killAllRunningCommands, powerOffAllProjects } from './commandRunner'
 import { startAutomaticUpdates } from './updater'
 
@@ -70,6 +71,7 @@ app.whenReady().then(() => {
   registerWindowIpc()
   registerSecretsIpc()
   registerRemoteIpc()
+  registerRuntimeIpc()
 
   createWindow()
   startAutomaticUpdates()
