@@ -1,6 +1,6 @@
 {
   "name": "aurora-dockside",
-  "version": "2.0.0-alpha.27",
+  "version": "2.0.0-alpha.28",
   "description": "A modern, modular Docker development platform for building, running, and managing web applications locally.",
   "desktopName": "aurora-dockside.desktop",
   "main": "./out/main/index.js",
@@ -30,7 +30,7 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",
-    "build:appimage": "npm run build && electron-builder --linux AppImage",
+    "build:appimage": "npm run build && electron-builder --linux AppImage --publish never",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",

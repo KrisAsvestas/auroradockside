@@ -50,7 +50,7 @@ jobs:
           cat dist/SHA256SUMS-linux.txt
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: aurora-dockside-linux-x64
           if-no-files-found: error
