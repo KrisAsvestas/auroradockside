@@ -10,6 +10,8 @@ Aurora Native is a per-platform PHP development engine that does not require Doc
 
 Each signed runtime bundle contains a `runtime.json` manifest plus versioned executables for PHP, web servers, databases, Node.js, and application tooling. Bundles install below Aurora's user-data directory and never modify system PHP or database installations.
 
+Runtime archives are created from a staging directory with `npm run build:native-runtime -- <staging-directory> <output.tar.gz>`. The packager resolves every executable inside the staging root, calculates its SHA-256 checksum, writes the immutable `runtime.json`, excludes the build template, and creates the distributable archive. Dockside independently verifies those checksums before declaring a runtime available.
+
 ## Isolation model
 
 Every project receives reserved loopback ports, generated service configuration, isolated database data, logs, PID files, and environment variables below `.aurora/native`. A shared Aurora router owns friendly HTTPS project hostnames. Project files remain directly accessible on the host.

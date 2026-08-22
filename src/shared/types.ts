@@ -37,6 +37,8 @@ export interface AuroraProjectSummary {
   mutagen_status?: string
   module_available?: boolean
   missing_module_id?: string
+  runtime_engine?: AuroraRuntimeEngine
+  native_ports?: { http: number; php: number; database: number; node: number }
 }
 
 export interface AuroraServiceHostPortMapping {
@@ -129,6 +131,7 @@ export interface AuroraRemoteSiteStatus {
 }
 
 export interface AuroraStackOptions {
+  runtimeEngine: AuroraRuntimeEngine
   phpVersion: string
   nodeVersion: string
   webServer: 'nginx' | 'apache'

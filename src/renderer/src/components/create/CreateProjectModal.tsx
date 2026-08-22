@@ -8,6 +8,8 @@ import {
   FolderOpen,
   Globe2,
   Sparkles,
+  Container,
+  Cpu,
   X
 } from 'lucide-react'
 import { useCreateProject } from '../../hooks/useCreateProject'
@@ -18,6 +20,7 @@ import { ExternalModuleSetup } from './types/ExternalModuleSetup'
 import type { TypeSetupHandle } from './types/shared'
 import { isValidProjectName, slugifyProjectName } from './projectName'
 import docksideIcon from '../../assets/dockside-icon.png'
+import { useRuntimeStatus } from '../../hooks/useRuntime'
 
 type Step = 'site' | 'setup'
 
@@ -48,11 +51,13 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
   const [redis, setRedis] = useState(false)
   const [mailpit, setMailpit] = useState(false)
   const [xdebug, setXdebug] = useState(false)
+  const [runtimeEngine] = useState<'container' | 'native'>('container')
 
   const createProject = useCreateProject()
   const selectProject = useAppStore((s) => s.selectProject)
   const setupRef = useRef<TypeSetupHandle>(null)
   const { data: moduleRegistry = [] } = useModuleRegistry()
+  const { data: runtimeStatus } = useRuntimeStatus()
   const applicationModules = moduleRegistry.filter((module) => module.category === 'application')
   const selectedModule = applicationModules.find((module) => module.id === projectType)
   const getTypeLabel = (type: string): string => applicationModules.find((module) => module.id === type)?.name ?? 'project'
@@ -77,7 +82,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
     const name = projectName.trim()
     setIsSubmitting(true)
     try {
-      await createProject.mutateAsync({ directory, projectName: name, projectType, docroot, stack: { phpVersion, nodeVersion, webServer, database, databaseVersion, adminer, redis, mailpit, xdebug } })
+      await createProject.mutateAsync({ directory, projectName: name, projectType, docroot, stack: { runtimeEngine, phpVersion, nodeVersion, webServer, database, databaseVersion, adminer, redis, mailpit, xdebug } })
     } catch {
       setIsSubmitting(false)
       return
@@ -271,6 +276,10 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                   <div className="mb-3">
                     <p className="text-sm font-semibold">Development stack</p>
                     <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">Aurora core owns the runtime; the application is a module layered on top.</p>
+                  </div>
+                  <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-xl border border-cyan-300 bg-cyan-50 p-3 text-cyan-950 dark:border-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-100"><div className="flex items-center gap-2 text-sm font-semibold"><Container size={16}/> Container engine</div><p className="mt-1 text-xs text-cyan-800/80 dark:text-cyan-100/70">Current compatible engine · {runtimeStatus?.container.available ? runtimeStatus.container.provider : 'not detected'}</p></div>
+                    <div aria-disabled="true" className="rounded-xl border border-neutral-200 bg-neutral-100/70 p-3 opacity-70 dark:border-white/10 dark:bg-white/[0.03]"><div className="flex items-center gap-2 text-sm font-semibold"><Cpu size={16}/> Aurora Native</div><p className="mt-1 text-xs text-neutral-500">{runtimeStatus?.native.available ? `Runtime ${runtimeStatus.native.runtimeVersion} detected · provisioning checks pending` : 'Runtime bundle not installed yet'}</p></div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div><label className={labelClass}>PHP</label><select className={fieldClass} value={phpVersion} onChange={(e)=>setPhpVersion(e.target.value)}>{(selectedModule?.creation?.phpVersions ?? ['8.2','8.3','8.4','8.5']).map(v=><option key={v}>{v}</option>)}</select></div>

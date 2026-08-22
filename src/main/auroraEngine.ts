@@ -3,7 +3,8 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { mkdir, readFile, writeFile, access, rm, readdir } from 'fs/promises'
 import { join } from 'path'
-import type { AuroraProjectDetail, AuroraProjectSummary, AuroraInstalledModule, AuroraModuleManifest, AuroraStackOptions } from '../shared/types'
+import type { AuroraProjectDetail, AuroraProjectSummary, AuroraInstalledModule, AuroraModuleManifest, AuroraStackOptions, AuroraRuntimeEngine } from '../shared/types'
+import type { AuroraNativePorts } from './native/portAllocator'
 import { CORE_VERSION, MODULE_API_VERSION, getModuleManifest, getModuleRegistry } from './moduleRegistry'
 
 const execFileAsync = promisify(execFile)
@@ -25,6 +26,8 @@ export type AuroraConfig = {
   wordpressMultisite?: 'none' | 'subdirectory' | 'subdomain'
   moduleMetadata?: Record<string, string | number | boolean>
   xdebug?: boolean
+  runtimeEngine?: AuroraRuntimeEngine
+  nativePorts?: AuroraNativePorts
 }
 
 type Registry = { projects: Record<string, string> }
@@ -213,7 +216,9 @@ export async function createProject(root: string, name: string, type: string, do
   if (stack?.mailpit) modules.push('mailpit')
   const phpVersion = stack?.phpVersion || application.creation?.phpVersions?.[0] || '8.4'
   if (application.creation?.phpVersions?.length && !application.creation.phpVersions.includes(phpVersion)) throw new Error(`${application.name} does not support PHP ${phpVersion}`)
-  const config: AuroraConfig = { name, type: normalizedType, docroot: defaultDocroot, php: phpVersion, node: stack?.nodeVersion || '24', webserver: stack?.webServer || 'nginx', database: stack?.database || 'mariadb', databaseVersion: stack?.databaseVersion || '11.8', modules, moduleSettings: {}, primaryProtocol: 'https', xdebug: stack?.xdebug === true }
+  const runtimeEngine = stack?.runtimeEngine ?? 'container'
+  if (runtimeEngine === 'native') throw new Error('Aurora Native project creation is locked until the platform runtime passes application provisioning checks.')
+  const config: AuroraConfig = { name, type: normalizedType, docroot: defaultDocroot, php: phpVersion, node: stack?.nodeVersion || '24', webserver: stack?.webServer || 'nginx', database: stack?.database || 'mariadb', databaseVersion: stack?.databaseVersion || '11.8', modules, moduleSettings: {}, primaryProtocol: 'https', xdebug: stack?.xdebug === true, runtimeEngine }
   await writeConfig(root, config); await writeWebServerConfig(root, config); await writePhpDockerfile(root, config.xdebug)
   const reg = await loadRegistry(); reg.projects[name] = root; await saveRegistry(reg)
 }
@@ -229,7 +234,7 @@ export async function listProjects(): Promise<AuroraProjectSummary[]> {
   for (const [name, root] of Object.entries(reg.projects)) {
     try { await access(configPath(root)); const c = await readConfig(root); const ps = await composeJson(root); const running = ps.length > 0 && ps.every(p => p.State === 'running'); const urls = projectUrls(c.name); const primary = c.primaryProtocol === 'http' ? urls.http : urls.https
       const moduleAvailable = availableModules.has(c.type)
-      out.push({ name, status: running?'running':'stopped', status_desc: moduleAvailable ? (running?'Running':'Stopped') : `Missing application module: ${c.type}`, type:c.type, approot:root, shortroot:root, docroot:c.docroot, primary_url:primary, httpurl:urls.http, httpsurl:urls.https, mutagen_enabled:false, module_available: moduleAvailable, missing_module_id: moduleAvailable ? undefined : c.type })
+      out.push({ name, status: running?'running':'stopped', status_desc: moduleAvailable ? (running?'Running':'Stopped') : `Missing application module: ${c.type}`, type:c.type, approot:root, shortroot:root, docroot:c.docroot, primary_url:primary, httpurl:urls.http, httpsurl:urls.https, mutagen_enabled:false, module_available: moduleAvailable, missing_module_id: moduleAvailable ? undefined : c.type, runtime_engine: c.runtimeEngine ?? 'container', native_ports: c.nativePorts })
     } catch { /* stale registry entry */ }
   } return out
 }
@@ -238,7 +243,7 @@ export async function describeProject(name: string): Promise<AuroraProjectDetail
   const c = await readConfig(root); const ps = await composeJson(root); const running = ps.length > 0 && ps.every(p=>p.State==='running'); const currentRouterStatus = await routerStatus(); const urlSet=projectUrls(c.name); const primary=c.primaryProtocol === 'http' ? urlSet.http : urlSet.https
   const services: Record<string, any> = {}; for (const p of ps) services[p.Service]={short_name:p.Service,full_name:p.Name,status:p.State,image:p.Image,exposed_ports:'',host_ports:'',host_ports_mapping:[]}
   const moduleMetadata = { ...(c.wordpressMultisite ? { multisite: c.wordpressMultisite } : {}), ...c.moduleMetadata }
-  return { name,status:running?'running':'stopped',status_desc:running?'Running':'Stopped',type:c.type,approot:root,shortroot:root,docroot:c.docroot,primary_url:primary,httpurl:urlSet.http,httpsurl:urlSet.https,mutagen_enabled:false,database_type:c.database,database_version:c.databaseVersion,dbinfo:{database_type:c.database,database_version:c.databaseVersion,dbPort:c.database==='postgres'?'5432':'3306',dbname:'db',host:'db',password:'db',published_port:0,username:'db'},hostname:projectHost(c.name),hostnames:[projectHost(c.name)],httpURLs:[urlSet.http],httpsURLs:[urlSet.https],urls:[urlSet.http,urlSet.https],php_version:c.php,nodejs_version:c.node,webserver_type:c.webserver,router:'file',router_status:currentRouterStatus,certificate_status:await certificateStatus(c.name),ca_trust_status:await caTrustStatus(),firefox_trust_status:await firefoxTrustStatus(),chromium_trust_status:await chromiumTrustStatus(),module_metadata:moduleMetadata,adminer_url:c.modules.includes('adminer')?`https://adminer.${projectHost(c.name)}`:undefined,services,xdebug_enabled:c.xdebug===true }
+  return { name,status:running?'running':'stopped',status_desc:running?'Running':'Stopped',type:c.type,approot:root,shortroot:root,docroot:c.docroot,primary_url:primary,httpurl:urlSet.http,httpsurl:urlSet.https,mutagen_enabled:false,database_type:c.database,database_version:c.databaseVersion,dbinfo:{database_type:c.database,database_version:c.databaseVersion,dbPort:c.database==='postgres'?'5432':'3306',dbname:'db',host:'db',password:'db',published_port:0,username:'db'},hostname:projectHost(c.name),hostnames:[projectHost(c.name)],httpURLs:[urlSet.http],httpsURLs:[urlSet.https],urls:[urlSet.http,urlSet.https],php_version:c.php,nodejs_version:c.node,webserver_type:c.webserver,router:'file',router_status:currentRouterStatus,certificate_status:await certificateStatus(c.name),ca_trust_status:await caTrustStatus(),firefox_trust_status:await firefoxTrustStatus(),chromium_trust_status:await chromiumTrustStatus(),module_metadata:moduleMetadata,adminer_url:c.modules.includes('adminer')?`https://adminer.${projectHost(c.name)}`:undefined,services,xdebug_enabled:c.xdebug===true,runtime_engine:c.runtimeEngine??'container',native_ports:c.nativePorts }
 }
 export async function updateEnvironment(root:string, updates:{phpVersion?:string;nodeVersion?:string;webserverType?:string;database?:string;xdebugEnabled?:boolean;primaryProtocol?:'http'|'https'}):Promise<void>{
   const c=await readConfig(root)
