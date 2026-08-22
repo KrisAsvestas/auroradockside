@@ -1,5 +1,9 @@
 import { ipcMain } from 'electron'
-import { getRuntimeStatus } from '../nativeRuntime'
+import {
+  getRuntimeStatus,
+  installBundledNativeRuntime,
+  pickAndInstallNativeRuntime
+} from '../nativeRuntime'
 import { getRuntimeUpdates } from '../runtimeCatalog'
 
 export function registerRuntimeIpc(): void {
@@ -8,4 +12,6 @@ export function registerRuntimeIpc(): void {
     const status = await getRuntimeStatus()
     return getRuntimeUpdates(status.native.components)
   })
+  ipcMain.handle('runtime:installBundled', () => installBundledNativeRuntime())
+  ipcMain.handle('runtime:pickAndInstall', () => pickAndInstallNativeRuntime())
 }

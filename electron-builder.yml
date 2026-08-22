@@ -18,6 +18,10 @@ extraResources:
     to: module-catalog
     filter:
       - '*.pac'
+  - from: dist/native-runtime
+    to: native-runtime
+    filter:
+      - 'aurora-native-*.tar.gz'
 win:
   executableName: aurora-dockside
 nsis:

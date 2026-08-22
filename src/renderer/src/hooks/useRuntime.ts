@@ -1,4 +1,10 @@
-import { useQuery, type UseQueryResult } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult
+} from '@tanstack/react-query'
 import type { AuroraRuntimeStatus, AuroraRuntimeUpdateStatus } from '@shared/types'
 
 export function useRuntimeStatus(): UseQueryResult<AuroraRuntimeStatus, Error> {
@@ -6,6 +12,23 @@ export function useRuntimeStatus(): UseQueryResult<AuroraRuntimeStatus, Error> {
     queryKey: ['runtime', 'status'],
     queryFn: () => window.api.runtime.status(),
     staleTime: 30000
+  })
+}
+
+export function useInstallNativeRuntime(): UseMutationResult<
+  AuroraRuntimeStatus | null,
+  Error,
+  'bundled' | 'file'
+> {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (source) =>
+      source === 'bundled'
+        ? window.api.runtime.installBundled()
+        : window.api.runtime.pickAndInstall(),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['runtime'] })
+    }
   })
 }
 

@@ -87,23 +87,31 @@ const api = {
   },
   modules: {
     listRegistry: (): Promise<AuroraModuleManifest[]> => ipcRenderer.invoke('modules:listRegistry'),
-    listAvailable: (): Promise<AuroraAvailableModule[]> => ipcRenderer.invoke('modules:listAvailable'),
+    listAvailable: (): Promise<AuroraAvailableModule[]> =>
+      ipcRenderer.invoke('modules:listAvailable'),
     listInstalled: (name: string): Promise<AuroraInstalledModule[]> =>
       ipcRenderer.invoke('modules:listInstalled', name),
     pickAndInstallPackage: (): Promise<AuroraModuleInstallResult | null> =>
       ipcRenderer.invoke('modules:pickAndInstallPackage'),
     installPackage: (source: string): Promise<AuroraModuleInstallResult> =>
       ipcRenderer.invoke('modules:installPackage', source),
-    uninstallPackage: (operationId: string, id: string): Promise<void> => ipcRenderer.invoke('modules:uninstallPackage', operationId, id),
+    uninstallPackage: (operationId: string, id: string): Promise<void> =>
+      ipcRenderer.invoke('modules:uninstallPackage', operationId, id),
     install: (
       operationId: string,
       name: string,
       moduleId: string,
       settings: Record<string, string | number | boolean>
-    ): Promise<void> => ipcRenderer.invoke('modules:install', operationId, name, moduleId, settings),
+    ): Promise<void> =>
+      ipcRenderer.invoke('modules:install', operationId, name, moduleId, settings),
     remove: (operationId: string, name: string, moduleId: string): Promise<void> =>
       ipcRenderer.invoke('modules:remove', operationId, name, moduleId),
-    runProjectTool: (operationId: string, name: string, moduleId: string, toolId: string): Promise<void> =>
+    runProjectTool: (
+      operationId: string,
+      name: string,
+      moduleId: string,
+      toolId: string
+    ): Promise<void> =>
       ipcRenderer.invoke('modules:runProjectTool', operationId, name, moduleId, toolId)
   },
   logs: {
@@ -139,8 +147,21 @@ const api = {
         docroot,
         stack
       ),
-    runModuleProjectCreate: (operationId: string, moduleId: string, directory: string, projectName: string, settings: Record<string, string | number | boolean>): Promise<void> =>
-      ipcRenderer.invoke('create:runModuleProjectCreate', operationId, moduleId, directory, projectName, settings),
+    runModuleProjectCreate: (
+      operationId: string,
+      moduleId: string,
+      directory: string,
+      projectName: string,
+      settings: Record<string, string | number | boolean>
+    ): Promise<void> =>
+      ipcRenderer.invoke(
+        'create:runModuleProjectCreate',
+        operationId,
+        moduleId,
+        directory,
+        projectName,
+        settings
+      )
   },
   secrets: {
     getSiteCredentials: (approot: string): Promise<AuroraSiteCredentials | null> =>
@@ -159,7 +180,11 @@ const api = {
   },
   runtime: {
     status: (): Promise<AuroraRuntimeStatus> => ipcRenderer.invoke('runtime:status'),
-    updates: (): Promise<AuroraRuntimeUpdateStatus> => ipcRenderer.invoke('runtime:updates')
+    updates: (): Promise<AuroraRuntimeUpdateStatus> => ipcRenderer.invoke('runtime:updates'),
+    installBundled: (): Promise<AuroraRuntimeStatus> =>
+      ipcRenderer.invoke('runtime:installBundled'),
+    pickAndInstall: (): Promise<AuroraRuntimeStatus | null> =>
+      ipcRenderer.invoke('runtime:pickAndInstall')
   },
   zoom: {
     in: (): Promise<number> => ipcRenderer.invoke('window:zoomIn'),

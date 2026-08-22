@@ -14,6 +14,8 @@ Runtime archives are created from a staging directory with `npm run build:native
 
 The first reproducible bundle target is Linux x64. Run `npm run build:native-linux-x64` on a Docker-capable build machine. Docker is used only to create the portable artifact; users of that artifact do not need Docker. The recipe pins PHP 8.5.9, nginx 1.30.4, and MariaDB 11.8.8 with their runtime libraries, runs version smoke checks outside the build container, and then invokes the normal checksum packager.
 
+Dockside can install a bundled runtime or a user-selected runtime archive from Settings. Installation rejects absolute and parent-traversing archive entries, rejects symbolic links, verifies the target platform and architecture, and verifies every declared executable checksum before atomically replacing an older runtime. Electron packages include matching archives from `dist/native-runtime` when they are present at packaging time.
+
 ## Isolation model
 
 Every project receives reserved loopback ports, generated service configuration, isolated database data, logs, PID files, and environment variables below `.aurora/native`. A shared Aurora router owns friendly HTTPS project hostnames. Project files remain directly accessible on the host.

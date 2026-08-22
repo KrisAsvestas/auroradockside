@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateNativeRuntimeManifest } from './nativeRuntime'
+import { validateArchiveEntries, validateNativeRuntimeManifest } from './nativeRuntime'
 
 const valid = {
   schema: 1,
@@ -28,4 +28,13 @@ describe('Aurora Native runtime manifest', () => {
         components: [{ ...valid.components[0], sha256: 'bad' }]
       })
     ).toThrow(/checksum/))
+  it('rejects archive entries that escape the installation directory', () => {
+    expect(() => validateArchiveEntries('./runtime.json\n./bin/php\n')).not.toThrow()
+    expect(() => validateArchiveEntries('./runtime.json\n../outside\n')).toThrow(
+      /Unsafe runtime archive entry/
+    )
+    expect(() => validateArchiveEntries('/absolute/runtime.json\n')).toThrow(
+      /Unsafe runtime archive entry/
+    )
+  })
 })

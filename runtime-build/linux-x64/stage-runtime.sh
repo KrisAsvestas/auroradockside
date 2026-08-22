@@ -27,6 +27,8 @@ copy_binary_and_libraries /usr/local/sbin/php-fpm
 copy_binary_and_libraries /usr/sbin/nginx
 copy_binary_and_libraries /usr/bin/mariadbd
 copy_binary_and_libraries /usr/bin/mariadb-install-db
+copy_binary_and_libraries /usr/bin/my_print_defaults
+copy_binary_and_libraries /usr/bin/resolveip
 mkdir -p "$root/lib" "$root/usr/lib"
 cp -aL /lib/. "$root/lib/"
 cp -aL /usr/lib/. "$root/usr/lib/"
@@ -51,7 +53,7 @@ exec "$runtime_root/root/lib/ld-musl-x86_64.so.1" --library-path "$LD_LIBRARY_PA
 EOF
 chmod +x "$stage/bin/aurora-exec"
 
-for entry in 'php:/usr/local/bin/php' 'php-fpm:/usr/local/sbin/php-fpm' 'nginx:/usr/sbin/nginx' 'mariadbd:/usr/bin/mariadbd' 'mariadb-install-db:/usr/bin/mariadb-install-db'; do
+for entry in 'php:/usr/local/bin/php' 'php-fpm:/usr/local/sbin/php-fpm' 'nginx:/usr/sbin/nginx' 'mariadbd:/usr/bin/mariadbd'; do
   name=${entry%%:*}
   target=${entry#*:}
   cat > "$stage/bin/$name" <<EOF
@@ -60,6 +62,34 @@ exec "\$(dirname "\$0")/aurora-exec" "$target" "\$@"
 EOF
   chmod +x "$stage/bin/$name"
 done
+
+# mariadb-install-db is a shell script that calls helpers below --basedir.
+# Put the ELF programs behind relocatable wrappers so those calls also use the
+# bundled musl loader instead of the host's /lib interpreter.
+mkdir -p "$root/usr/libexec/aurora"
+for name in mariadbd my_print_defaults resolveip; do
+  mv "$root/usr/bin/$name" "$root/usr/libexec/aurora/$name"
+  cat > "$root/usr/bin/$name" <<EOF
+#!/bin/sh
+runtime_root=\$(CDPATH= cd -- "\$(dirname -- "\$0")/../../.." && pwd)
+exec "\$runtime_root/bin/aurora-exec" "/usr/libexec/aurora/$name" "\$@"
+EOF
+  chmod +x "$root/usr/bin/$name"
+done
+cat > "$stage/bin/mariadb-install-db" <<'EOF'
+#!/bin/sh
+set -eu
+runtime_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec /bin/sh "$runtime_root/root/usr/bin/mariadb-install-db" --basedir="$runtime_root/root/usr" "$@"
+EOF
+chmod +x "$stage/bin/mariadb-install-db"
+
+# The public daemon launcher must now target the relocated ELF binary.
+cat > "$stage/bin/mariadbd" <<'EOF'
+#!/bin/sh
+exec "$(dirname "$0")/aurora-exec" /usr/libexec/aurora/mariadbd "$@"
+EOF
+chmod +x "$stage/bin/mariadbd"
 
 php_version=$(php -r 'echo PHP_VERSION;')
 nginx_version=$(nginx -v 2>&1 | sed 's#nginx version: nginx/##')

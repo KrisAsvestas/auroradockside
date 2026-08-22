@@ -1,0 +1,173 @@
+import { execFile } from 'child_process'
+import { access, mkdir, writeFile } from 'fs/promises'
+import { join, resolve } from 'path'
+import { promisify } from 'util'
+import type { AuroraNativePorts } from './portAllocator'
+import { NativeProcessSupervisor, type NativeServiceSpec } from './processSupervisor'
+import { runtimeRoot } from '../nativeRuntime'
+
+const execFileAsync = promisify(execFile)
+const supervisor = new NativeProcessSupervisor()
+
+export interface NativeProjectDefinition {
+  name: string
+  root: string
+  docroot: string
+  ports: AuroraNativePorts
+}
+
+function nativeDirectory(root: string): string {
+  return join(root, '.aurora', 'native')
+}
+
+function quoteNginx(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+export function renderPhpFpmConfig(project: NativeProjectDefinition): string {
+  const directory = nativeDirectory(project.root)
+  return `[global]
+daemonize = no
+pid = ${join(directory, 'pids', 'php.pid')}
+error_log = ${join(directory, 'logs', 'php.log')}
+
+[www]
+listen = 127.0.0.1:${project.ports.php}
+pm = dynamic
+pm.max_children = 8
+pm.start_servers = 2
+pm.min_spare_servers = 1
+pm.max_spare_servers = 3
+clear_env = no
+catch_workers_output = yes
+chdir = ${project.root}
+`
+}
+
+export function renderNginxConfig(project: NativeProjectDefinition): string {
+  const directory = nativeDirectory(project.root)
+  const webroot = resolve(project.root, project.docroot || '.')
+  return `daemon off;
+pid "${quoteNginx(join(directory, 'pids', 'nginx.pid'))}";
+error_log "${quoteNginx(join(directory, 'logs', 'nginx.log'))}" info;
+events { worker_connections 256; }
+http {
+  access_log "${quoteNginx(join(directory, 'logs', 'nginx-access.log'))}";
+  server {
+    listen 127.0.0.1:${project.ports.http};
+    server_name localhost;
+    root "${quoteNginx(webroot)}";
+    index index.php index.html;
+    location / { try_files $uri $uri/ /index.php?$query_string; }
+    location ~ \\.php$ {
+      fastcgi_pass 127.0.0.1:${project.ports.php};
+      fastcgi_index index.php;
+      fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+      fastcgi_param SCRIPT_NAME $fastcgi_script_name;
+      fastcgi_param REQUEST_METHOD $request_method;
+      fastcgi_param QUERY_STRING $query_string;
+      fastcgi_param CONTENT_TYPE $content_type;
+      fastcgi_param CONTENT_LENGTH $content_length;
+    }
+  }
+}
+`
+}
+
+export function renderMariaDbConfig(
+  project: NativeProjectDefinition,
+  installedRuntimeRoot = runtimeRoot()
+): string {
+  const directory = nativeDirectory(project.root)
+  return `[mariadbd]
+basedir=${join(installedRuntimeRoot, 'root', 'usr')}
+datadir=${join(directory, 'data', 'mariadb')}
+tmpdir=${join(directory, 'tmp')}
+bind-address=127.0.0.1
+port=${project.ports.database}
+socket=${join(directory, 'mariadb.sock')}
+pid-file=${join(directory, 'pids', 'mariadb.pid')}
+log-error=${join(directory, 'logs', 'mariadb.log')}
+skip-name-resolve
+`
+}
+
+export async function provisionNativeProject(project: NativeProjectDefinition): Promise<void> {
+  const directory = nativeDirectory(project.root)
+  for (const child of ['config', 'data/mariadb', 'logs', 'pids', 'tmp'])
+    await mkdir(join(directory, child), { recursive: true })
+  await Promise.all([
+    writeFile(join(directory, 'config', 'php-fpm.conf'), renderPhpFpmConfig(project)),
+    writeFile(join(directory, 'config', 'nginx.conf'), renderNginxConfig(project)),
+    writeFile(join(directory, 'config', 'mariadb.cnf'), renderMariaDbConfig(project))
+  ])
+  try {
+    await access(join(directory, 'data', 'mariadb', 'mysql'))
+  } catch {
+    await execFileAsync(
+      join(runtimeRoot(), 'bin', 'mariadb-install-db'),
+      [
+        '--no-defaults',
+        `--datadir=${join(directory, 'data', 'mariadb')}`,
+        `--tmpdir=${join(directory, 'tmp')}`,
+        '--auth-root-authentication-method=normal',
+        '--skip-test-db'
+      ],
+      { cwd: project.root, maxBuffer: 16 * 1024 * 1024 }
+    )
+  }
+}
+
+export function nativeServiceSpecs(project: NativeProjectDefinition): NativeServiceSpec[] {
+  const directory = nativeDirectory(project.root)
+  const common = (id: string): Pick<NativeServiceSpec, 'id' | 'cwd' | 'logPath' | 'pidPath'> => ({
+    id: `${project.name}:${id}`,
+    cwd: project.root,
+    logPath: join(directory, 'logs', `${id}-process.log`),
+    pidPath: join(directory, 'pids', `${id}-process.json`)
+  })
+  return [
+    {
+      ...common('database'),
+      command: join(runtimeRoot(), 'bin', 'mariadbd'),
+      args: [`--defaults-file=${join(directory, 'config', 'mariadb.cnf')}`],
+      ready: { port: project.ports.database, timeoutMs: 30000 }
+    },
+    {
+      ...common('php'),
+      command: join(runtimeRoot(), 'bin', 'php-fpm'),
+      args: ['--nodaemonize', '--fpm-config', join(directory, 'config', 'php-fpm.conf')],
+      ready: { port: project.ports.php }
+    },
+    {
+      ...common('web'),
+      command: join(runtimeRoot(), 'bin', 'nginx'),
+      args: ['-c', join(directory, 'config', 'nginx.conf'), '-p', `${directory}/`],
+      ready: { port: project.ports.http }
+    }
+  ]
+}
+
+export async function startNativeProject(project: NativeProjectDefinition): Promise<void> {
+  await provisionNativeProject(project)
+  for (const spec of nativeServiceSpecs(project)) await supervisor.start(spec)
+}
+
+export async function stopNativeProject(project: NativeProjectDefinition): Promise<void> {
+  for (const spec of nativeServiceSpecs(project).reverse()) await supervisor.stop(spec)
+}
+
+export async function nativeProjectStatus(
+  project: NativeProjectDefinition
+): Promise<{ running: boolean; services: Record<string, 'running' | 'stopped'> }> {
+  const entries = await Promise.all(
+    nativeServiceSpecs(project).map(
+      async (spec) => [spec.id.split(':').at(-1)!, await supervisor.status(spec)] as const
+    )
+  )
+  const services = Object.fromEntries(entries)
+  return {
+    running: entries.length > 0 && entries.every(([, status]) => status === 'running'),
+    services
+  }
+}
