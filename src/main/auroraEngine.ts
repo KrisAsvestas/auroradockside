@@ -702,11 +702,8 @@ export async function getNativeProjectDefinition(
   return config.runtimeEngine === 'native' ? nativeDefinition(root, config) : null
 }
 
-export async function getProjectConfigByRoot(
-  root: string
-): Promise<{ database: 'mariadb' | 'mysql' | 'postgres'; databaseVersion: string; name: string }> {
-  const config = await readConfig(root)
-  return { database: config.database, databaseVersion: config.databaseVersion, name: config.name }
+export async function getProjectConfigByRoot(root: string): Promise<AuroraConfig> {
+  return readConfig(root)
 }
 
 async function ensureCertificateAuthority(): Promise<void> {

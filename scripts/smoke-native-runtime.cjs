@@ -34,6 +34,18 @@ const checks = [
     join(root, 'bin/wp'),
     ['--version'],
     template.components.find((item) => item.id === 'wp-cli')?.version
+  ],
+  [
+    'MariaDB client',
+    join(root, 'bin/mariadb'),
+    ['--version'],
+    template.components.find((item) => item.id === 'mariadb')?.version
+  ],
+  [
+    'MariaDB dump',
+    join(root, 'bin/mariadb-dump'),
+    ['--version'],
+    template.components.find((item) => item.id === 'mariadb')?.version
   ]
 ]
 for (const [name, command, args, version] of checks) {

@@ -26,11 +26,12 @@ Every project receives reserved loopback ports, generated service configuration,
 2. Native process supervisor and loopback port allocator.
 3. Linux x64 bundle with PHP 8.5, nginx, MariaDB 11.8, and WP-CLI.
 4. Native project lifecycle and single-site WordPress provisioning.
-5. Native logs, database import/export, and database administration.
-6. macOS arm64/x64 and Windows x64 bundles.
-7. Additional PHP/database versions, Apache, Drupal, Node.js, and developer services.
+5. Native service logs, compressed snapshots, and database import/export.
+6. Native database administration.
+7. macOS arm64/x64 and Windows x64 bundles.
+8. Additional PHP/database versions, Apache, Drupal, Node.js, and developer services.
 
-Dockside enables native project creation only when an installed platform bundle contains the selected PHP branch, nginx, MariaDB 11.8, and WP-CLI. Existing projects default to the container engine for backward compatibility. The native smoke suite starts all three services, serves PHP through FastCGI, provisions a real WordPress site, and verifies its HTTP response and cleanup.
+Dockside enables native project creation only when an installed platform bundle contains the selected PHP branch, nginx, MariaDB 11.8, and WP-CLI. Existing projects default to the container engine for backward compatibility. The native smoke suite starts all three services, serves PHP through FastCGI, provisions a real WordPress site, round-trips its database through the bundled dump and restore clients, and verifies its HTTP response and cleanup.
 
 ## Runtime update notifications
 

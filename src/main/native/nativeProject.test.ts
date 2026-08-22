@@ -1,4 +1,4 @@
-import { execFile } from 'child_process'
+import { execFile, spawn } from 'child_process'
 import { createRequire } from 'module'
 import { mkdtemp, readFile, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
@@ -21,6 +21,22 @@ const project = {
   ports: { http: 41001, php: 41002, database: 41003, node: 41004 }
 }
 const execFileAsync = promisify(execFile)
+
+function runWithInput(command: string, args: string[], cwd: string, input: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { cwd, env: process.env, stdio: ['pipe', 'pipe', 'pipe'] })
+    let stderr = ''
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString()
+    })
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code === 0) resolve()
+      else reject(new Error(stderr.trim() || `${command} exited with code ${code}`))
+    })
+    child.stdin.end(input)
+  })
+}
 
 describe('native project configuration', () => {
   it('isolates PHP-FPM on its allocated loopback port', () =>
@@ -119,6 +135,41 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
       const response = await fetch(`http://127.0.0.1:${definition.ports.http}`)
       expect(response.ok).toBe(true)
       expect(await response.text()).toContain('Aurora native smoke')
+
+      const databaseArgs = [
+        '--host=127.0.0.1',
+        `--port=${definition.ports.database}`,
+        '--user=db',
+        '--password=db',
+        'db'
+      ]
+      const dump = await execFileAsync(
+        join(runtime, 'bin', 'mariadb-dump'),
+        [...databaseArgs.slice(0, -1), '--single-transaction', 'db'],
+        { cwd: root, env: process.env, maxBuffer: 32 * 1024 * 1024 }
+      )
+      await execFileAsync(
+        join(runtime, 'bin', 'mariadb'),
+        [
+          ...databaseArgs,
+          '-e',
+          "UPDATE wp_options SET option_value='Changed' WHERE option_name='blogname'"
+        ],
+        { cwd: root, env: process.env }
+      )
+      await runWithInput(join(runtime, 'bin', 'mariadb'), databaseArgs, root, dump.stdout)
+      const restored = await execFileAsync(
+        join(runtime, 'bin', 'mariadb'),
+        [
+          ...databaseArgs,
+          '--batch',
+          '--skip-column-names',
+          '-e',
+          "SELECT option_value FROM wp_options WHERE option_name='blogname'"
+        ],
+        { cwd: root, env: process.env }
+      )
+      expect(restored.stdout.trim()).toBe('Aurora native smoke')
     } finally {
       await stopNativeProject(definition)
     }

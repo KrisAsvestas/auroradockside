@@ -26,6 +26,8 @@ copy_binary_and_libraries /usr/local/bin/php
 copy_binary_and_libraries /usr/local/sbin/php-fpm
 copy_binary_and_libraries /usr/sbin/nginx
 copy_binary_and_libraries /usr/bin/mariadbd
+copy_binary_and_libraries /usr/bin/mariadb
+copy_binary_and_libraries /usr/bin/mariadb-dump
 copy_binary_and_libraries /usr/bin/mariadb-install-db
 copy_binary_and_libraries /usr/bin/my_print_defaults
 copy_binary_and_libraries /usr/bin/resolveip
@@ -79,7 +81,7 @@ done
 # Put the ELF programs behind relocatable wrappers so those calls also use the
 # bundled musl loader instead of the host's /lib interpreter.
 mkdir -p "$root/usr/libexec/aurora"
-for name in mariadbd my_print_defaults resolveip; do
+for name in mariadbd mariadb mariadb-dump my_print_defaults resolveip; do
   mv "$root/usr/bin/$name" "$root/usr/libexec/aurora/$name"
   cat > "$root/usr/bin/$name" <<EOF
 #!/bin/sh
@@ -103,6 +105,14 @@ exec "$(dirname "$0")/aurora-exec" /usr/libexec/aurora/mariadbd "$@"
 EOF
 chmod +x "$stage/bin/mariadbd"
 
+for name in mariadb mariadb-dump; do
+  cat > "$stage/bin/$name" <<EOF
+#!/bin/sh
+exec "\$(dirname "\$0")/aurora-exec" "/usr/libexec/aurora/$name" "\$@"
+EOF
+  chmod +x "$stage/bin/$name"
+done
+
 cp /tmp/wp-cli.phar "$root/usr/local/bin/wp-cli.phar"
 cat > "$stage/bin/wp" <<'EOF'
 #!/bin/sh
@@ -124,6 +134,8 @@ cat > "$stage/runtime.template.json" <<EOF
     { "id": "php", "version": "$php_version", "executable": "bin/php-fpm" },
     { "id": "nginx", "version": "$nginx_version", "executable": "bin/nginx" },
     { "id": "mariadb", "version": "$mariadb_version", "executable": "bin/mariadbd" },
+    { "id": "mariadb-client", "version": "$mariadb_version", "executable": "bin/mariadb" },
+    { "id": "mariadb-dump", "version": "$mariadb_version", "executable": "bin/mariadb-dump" },
     { "id": "wp-cli", "version": "2.12.0", "executable": "bin/wp" }
   ]
 }
