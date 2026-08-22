@@ -1,6 +1,7 @@
-import { Minus, Plus, RotateCcw, X } from 'lucide-react'
+import { CheckCircle2, Minus, Plus, RefreshCw, RotateCcw, X } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useThemeStore, type Theme } from '../../stores/themeStore'
+import { useRuntimeUpdates } from '../../hooks/useRuntime'
 
 const THEMES: { value: Theme; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -18,6 +19,7 @@ const SHORTCUTS = [
 export function SettingsModal({ onClose }: { onClose: () => void }): React.JSX.Element {
   const theme = useThemeStore((s) => s.theme)
   const setTheme = useThemeStore((s) => s.setTheme)
+  const runtimeUpdates = useRuntimeUpdates()
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-8">
@@ -34,6 +36,20 @@ export function SettingsModal({ onClose }: { onClose: () => void }): React.JSX.E
         </div>
 
         <div className="flex flex-col gap-6 p-4">
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Runtime updates</h3>
+              <button type="button" onClick={() => runtimeUpdates.refetch()} disabled={runtimeUpdates.isFetching} className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-cyan-700 hover:bg-cyan-50 disabled:opacity-50 dark:text-cyan-300 dark:hover:bg-cyan-400/10"><RefreshCw size={12} className={runtimeUpdates.isFetching ? 'animate-spin' : ''}/>Check now</button>
+            </div>
+            <div className="rounded-lg border border-neutral-200 p-3 text-sm dark:border-neutral-700">
+              {runtimeUpdates.isLoading ? <p className="text-neutral-500">Checking trusted runtime catalog…</p> : runtimeUpdates.data?.updates.length ? (
+                <div className="space-y-2">{runtimeUpdates.data.updates.map((update) => <div key={update.component} className="flex items-center justify-between"><span className="font-medium uppercase">{update.component}</span><span className="text-xs text-amber-700 dark:text-amber-300">{update.installedVersion} → {update.availableVersion}</span></div>)}</div>
+              ) : <p className="flex items-center gap-2 text-neutral-600 dark:text-neutral-300"><CheckCircle2 size={15} className="text-emerald-600"/>Installed Aurora runtimes are current.</p>}
+              {runtimeUpdates.data?.message && <p className="mt-2 text-xs text-neutral-500">Using the {runtimeUpdates.data.source} catalog. {runtimeUpdates.data.message}</p>}
+              <p className="mt-2 text-xs text-neutral-400">Updates are announced automatically. Installation remains a user-approved action.</p>
+            </div>
+          </section>
+
           <section>
             <h3 className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
               Theme

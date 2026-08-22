@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Anchor, Boxes, FolderOpen, Plus, Settings, Sparkles, TerminalSquare } from 'lucide-react'
+import { Anchor, Bell, Boxes, FolderOpen, Plus, Settings, Sparkles, TerminalSquare } from 'lucide-react'
 import { ProjectDetail } from './components/projects/ProjectDetail'
 import { ProjectList } from './components/projects/ProjectList'
 import { TerminalPanel } from './components/terminal/TerminalPanel'
@@ -13,12 +13,14 @@ import { useTerminalEvents } from './hooks/useTerminalEvents'
 import { useAppliedTheme } from './hooks/useAppliedTheme'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import docksideIcon from './assets/dockside-icon.png'
+import { useRuntimeUpdates } from './hooks/useRuntime'
 
 function App(): React.JSX.Element {
   const selectedProjectName = useAppStore((s) => s.selectedProjectName)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isModulesOpen, setIsModulesOpen] = useState(false)
+  const { data: runtimeUpdates } = useRuntimeUpdates()
   useTerminalEvents()
   useAppliedTheme()
   useKeyboardShortcuts({
@@ -53,6 +55,17 @@ function App(): React.JSX.Element {
               >
                 <Plus size={16} />
               </button>
+              {runtimeUpdates && runtimeUpdates.updates.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(true)}
+                  title={`${runtimeUpdates.updates.length} runtime update${runtimeUpdates.updates.length === 1 ? '' : 's'} available`}
+                  className="relative rounded-md p-1.5 text-amber-600 transition hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-400/10"
+                >
+                  <Bell size={16} />
+                  <span className="absolute right-0 top-0 size-2 rounded-full bg-amber-500" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsSettingsOpen(true)}

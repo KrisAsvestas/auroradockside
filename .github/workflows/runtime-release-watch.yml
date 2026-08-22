@@ -1,0 +1,36 @@
+name: Runtime release watch
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  php-releases:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check official PHP releases
+        id: check
+        run: |
+          RESULT=$(node scripts/check-php-releases.mjs --report "$RUNNER_TEMP/php-runtime-report.md")
+          echo "count=$(node -e 'const value=JSON.parse(process.argv[1]); console.log(value.updates.length)' "$RESULT")" >> "$GITHUB_OUTPUT"
+      - name: Create or refresh packaging issue
+        if: steps.check.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Runtime update: new PHP release needs packaging"
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --body-file "$RUNNER_TEMP/php-runtime-report.md"
+          else
+            gh issue create --title "$TITLE" --body-file "$RUNNER_TEMP/php-runtime-report.md"
+          fi

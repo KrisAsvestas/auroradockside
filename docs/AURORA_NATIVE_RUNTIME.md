@@ -26,3 +26,9 @@ Every project receives reserved loopback ports, generated service configuration,
 6. Additional PHP/database versions, Apache, Drupal, Node.js, and developer services.
 
 Native project creation must stay disabled until the platform bundle passes executable, service-health, database, routing, and cleanup checks. Existing projects default to the container engine for backward compatibility.
+
+## Runtime update notifications
+
+Dockside reads the bundled runtime catalog at startup and checks again every six hours. A remote catalog is accepted only when `AURORA_RUNTIME_CATALOG_PUBLIC_KEY` contains the Ed25519 public key and the adjacent `catalog.json.sig` validates. The last verified remote catalog is cached; otherwise Dockside falls back to its bundled trusted catalog.
+
+The scheduled `runtime-release-watch.yml` workflow checks PHP's official JSON release feed every six hours. When a tracked PHP branch changes, it creates or updates a GitHub issue. It does not publish a runtime automatically: each platform package must be built, checksummed, tested, added to the catalog, and signed before users see it.

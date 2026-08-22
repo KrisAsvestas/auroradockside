@@ -22,6 +22,38 @@ export interface AuroraRuntimeStatus {
   native: { available: boolean; platform: string; arch: string; runtimeVersion?: string; components: AuroraNativeRuntimeComponent[]; reason?: string }
 }
 
+export type AuroraRuntimeComponentId = AuroraNativeRuntimeComponent['id']
+
+export interface AuroraRuntimeCatalogRelease {
+  component: AuroraRuntimeComponentId
+  version: string
+  platform: AuroraNativeRuntimeManifest['platform']
+  arch: AuroraNativeRuntimeManifest['arch']
+  channel: 'stable' | 'security'
+  url: string
+  sha256: string
+}
+
+export interface AuroraRuntimeCatalog {
+  schema: 1
+  generatedAt: string
+  releases: AuroraRuntimeCatalogRelease[]
+}
+
+export interface AuroraRuntimeUpdate {
+  component: AuroraRuntimeComponentId
+  installedVersion: string
+  availableVersion: string
+  channel: AuroraRuntimeCatalogRelease['channel']
+}
+
+export interface AuroraRuntimeUpdateStatus {
+  checkedAt: string
+  source: 'bundled' | 'remote' | 'cache'
+  updates: AuroraRuntimeUpdate[]
+  message?: string
+}
+
 export interface AuroraProjectSummary {
   name: string
   status: ProjectStatus

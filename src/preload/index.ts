@@ -12,6 +12,7 @@ import type {
   AuroraRemoteSiteProfile,
   AuroraRemoteSiteStatus,
   AuroraRuntimeStatus,
+  AuroraRuntimeUpdateStatus,
   AuroraStackOptions,
   EnvironmentUpdate,
   LogDataEvent,
@@ -157,7 +158,8 @@ const api = {
       ipcRenderer.invoke('remote:pull', operationId, name)
   },
   runtime: {
-    status: (): Promise<AuroraRuntimeStatus> => ipcRenderer.invoke('runtime:status')
+    status: (): Promise<AuroraRuntimeStatus> => ipcRenderer.invoke('runtime:status'),
+    updates: (): Promise<AuroraRuntimeUpdateStatus> => ipcRenderer.invoke('runtime:updates')
   },
   zoom: {
     in: (): Promise<number> => ipcRenderer.invoke('window:zoomIn'),
