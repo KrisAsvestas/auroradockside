@@ -14,7 +14,7 @@ describe('native process supervisor', () => {
       command: process.execPath,
       args: [
         '-e',
-        `const s=require('net').createServer(c=>c.end('ok'));s.listen(${port},'127.0.0.1');console.log('ready')`
+        `const net=require('net');const s=net.createServer(c=>c.end('ok'));s.on('error',e=>{console.error(e);process.exit(1)});s.listen(${port},'127.0.0.1',()=>console.log('ready'));setInterval(()=>{},1000)`
       ],
       cwd: root,
       logPath: join(root, 'service.log'),
@@ -22,12 +22,15 @@ describe('native process supervisor', () => {
       ready: { port, timeoutMs: 5000 }
     }
     const supervisor = new NativeProcessSupervisor()
-    const state = await supervisor.start(spec)
-    expect(state.status).toBe('running')
-    expect(await supervisor.status(spec)).toBe('running')
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    expect(await readFile(spec.logPath, 'utf8')).toContain('ready')
-    await supervisor.stop(spec)
+    try {
+      const state = await supervisor.start(spec)
+      expect(state.status).toBe('running')
+      expect(await supervisor.status(spec)).toBe('running')
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(await readFile(spec.logPath, 'utf8')).toContain('ready')
+    } finally {
+      await supervisor.stop(spec)
+    }
     expect(await supervisor.status(spec)).toBe('stopped')
   })
 })
