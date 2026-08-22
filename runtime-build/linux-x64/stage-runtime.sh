@@ -63,6 +63,18 @@ EOF
   chmod +x "$stage/bin/$name"
 done
 
+for name in php php-fpm; do
+  target=/usr/local/bin/php
+  [ "$name" = php-fpm ] && target=/usr/local/sbin/php-fpm
+  cat > "$stage/bin/$name" <<EOF
+#!/bin/sh
+runtime_root=\$(CDPATH= cd -- "\$(dirname -- "\$0")/.." && pwd)
+extension_dir=\$(find "\$runtime_root/root/usr/local/lib/php/extensions" -mindepth 1 -maxdepth 1 -type d -print -quit)
+exec "\$runtime_root/bin/aurora-exec" "$target" -d "extension_dir=\$extension_dir" "\$@"
+EOF
+  chmod +x "$stage/bin/$name"
+done
+
 # mariadb-install-db is a shell script that calls helpers below --basedir.
 # Put the ELF programs behind relocatable wrappers so those calls also use the
 # bundled musl loader instead of the host's /lib interpreter.
@@ -91,6 +103,14 @@ exec "$(dirname "$0")/aurora-exec" /usr/libexec/aurora/mariadbd "$@"
 EOF
 chmod +x "$stage/bin/mariadbd"
 
+cp /tmp/wp-cli.phar "$root/usr/local/bin/wp-cli.phar"
+cat > "$stage/bin/wp" <<'EOF'
+#!/bin/sh
+runtime_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec "$runtime_root/bin/php" -d memory_limit=512M "$runtime_root/root/usr/local/bin/wp-cli.phar" "$@"
+EOF
+chmod +x "$stage/bin/wp"
+
 php_version=$(php -r 'echo PHP_VERSION;')
 nginx_version=$(nginx -v 2>&1 | sed 's#nginx version: nginx/##')
 mariadb_version=$(mariadbd --version | sed -n 's/.* Ver \([^ -]*\).*/\1/p')
@@ -103,7 +123,8 @@ cat > "$stage/runtime.template.json" <<EOF
   "components": [
     { "id": "php", "version": "$php_version", "executable": "bin/php-fpm" },
     { "id": "nginx", "version": "$nginx_version", "executable": "bin/nginx" },
-    { "id": "mariadb", "version": "$mariadb_version", "executable": "bin/mariadbd" }
+    { "id": "mariadb", "version": "$mariadb_version", "executable": "bin/mariadbd" },
+    { "id": "wp-cli", "version": "2.12.0", "executable": "bin/wp" }
   ]
 }
 EOF

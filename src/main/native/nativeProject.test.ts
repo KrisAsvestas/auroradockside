@@ -1,5 +1,18 @@
+import { execFile } from 'child_process'
+import { createRequire } from 'module'
+import { mkdtemp, readFile, writeFile } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import { promisify } from 'util'
 import { describe, expect, it } from 'vitest'
-import { renderMariaDbConfig, renderNginxConfig, renderPhpFpmConfig } from './nativeProject'
+import {
+  renderMariaDbConfig,
+  renderNginxConfig,
+  renderPhpFpmConfig,
+  startNativeProject,
+  stopNativeProject
+} from './nativeProject'
+import { allocateNativePorts } from './portAllocator'
 
 const project = {
   name: 'demo',
@@ -7,6 +20,7 @@ const project = {
   docroot: 'public',
   ports: { http: 41001, php: 41002, database: 41003, node: 41004 }
 }
+const execFileAsync = promisify(execFile)
 
 describe('native project configuration', () => {
   it('isolates PHP-FPM on its allocated loopback port', () =>
@@ -25,3 +39,89 @@ describe('native project configuration', () => {
     expect(config).toContain('/.aurora/native/data/mariadb')
   })
 })
+
+it.runIf(Boolean(process.env.AURORA_NATIVE_SMOKE_ROOT))(
+  'serves PHP through the complete native stack',
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aurora-native-project-'))
+    await writeFile(join(root, 'index.php'), '<?php echo "aurora-native-ok";')
+    const definition = {
+      name: `smoke-${Date.now()}`,
+      root,
+      docroot: '',
+      ports: await allocateNativePorts(),
+      installedRuntimeRoot: process.env.AURORA_NATIVE_SMOKE_ROOT
+    }
+    try {
+      await startNativeProject(definition)
+      const response = await fetch(`http://127.0.0.1:${definition.ports.http}`)
+      expect(await response.text()).toBe('aurora-native-ok')
+    } finally {
+      await stopNativeProject(definition)
+    }
+  },
+  45000
+)
+
+it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
+  'provisions WordPress with the bundled native runtime',
+  async () => {
+    const runtime = process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT!
+    const root = await mkdtemp(join(tmpdir(), 'aurora-native-wordpress-'))
+    const definition = {
+      name: `wordpress-${Date.now()}`,
+      root,
+      docroot: '',
+      ports: await allocateNativePorts(),
+      installedRuntimeRoot: runtime
+    }
+    const wordpress = createRequire(import.meta.url)(
+      '../../../packages/aurora-module-wordpress/main/index.cjs'
+    ) as { projectCreate: (context: Record<string, unknown>) => Promise<void> }
+    try {
+      await wordpress.projectCreate({
+        moduleId: 'wordpress',
+        directory: root,
+        projectName: definition.name,
+        settings: {
+          title: 'Aurora native smoke',
+          admin_user: 'aurora-admin',
+          admin_password: 'aurora-native-test-password',
+          admin_email: 'smoke@aurora.local',
+          locale: 'en_US',
+          multisite: 'none',
+          wp_debug: false
+        },
+        environment: { runtimeEngine: 'native' },
+        urls: {
+          http: `http://127.0.0.1:${definition.ports.http}`,
+          https: `http://127.0.0.1:${definition.ports.http}`
+        },
+        native: {
+          php: join(runtime, 'bin', 'php'),
+          wp: join(runtime, 'bin', 'wp'),
+          databasePort: definition.ports.database,
+          start: () => startNativeProject(definition)
+        },
+        run: async (_label: string, command: string, args: string[]) => {
+          await execFileAsync(command, args, {
+            cwd: root,
+            env: process.env,
+            maxBuffer: 32 * 1024 * 1024
+          })
+        },
+        setProjectMetadata: async () => undefined,
+        saveCredentials: async () => undefined
+      })
+      expect(await readFile(join(root, 'wp-config.php'), 'utf8')).toContain(
+        `127.0.0.1:${definition.ports.database}`
+      )
+      const response = await fetch(`http://127.0.0.1:${definition.ports.http}`)
+      expect(response.ok).toBe(true)
+      expect(await response.text()).toContain('Aurora native smoke')
+    } finally {
+      await stopNativeProject(definition)
+    }
+  },
+  120000
+)

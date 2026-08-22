@@ -51,7 +51,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
   const [redis, setRedis] = useState(false)
   const [mailpit, setMailpit] = useState(false)
   const [xdebug, setXdebug] = useState(false)
-  const [runtimeEngine] = useState<'container' | 'native'>('container')
+  const [runtimeEngine, setRuntimeEngine] = useState<'container' | 'native'>('container')
 
   const createProject = useCreateProject()
   const selectProject = useAppStore((s) => s.selectProject)
@@ -60,12 +60,31 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
   const { data: runtimeStatus } = useRuntimeStatus()
   const applicationModules = moduleRegistry.filter((module) => module.category === 'application')
   const selectedModule = applicationModules.find((module) => module.id === projectType)
-  const getTypeLabel = (type: string): string => applicationModules.find((module) => module.id === type)?.name ?? 'project'
+  const getTypeLabel = (type: string): string =>
+    applicationModules.find((module) => module.id === type)?.name ?? 'project'
 
   const trimmedName = projectName.trim()
   const nameValid = trimmedName.length > 0 && isValidProjectName(trimmedName)
   const canContinue = directory !== null && nameValid && selectedModule !== undefined
   const canSubmit = canContinue && setupValid && !isSubmitting
+
+  function selectRuntimeEngine(engine: 'container' | 'native'): void {
+    if (engine === 'native' && !runtimeStatus?.native.available) return
+    setRuntimeEngine(engine)
+    if (engine === 'native') {
+      const nativePhp = runtimeStatus?.native.components.find(
+        (component) => component.id === 'php'
+      )?.version
+      if (nativePhp) setPhpVersion(nativePhp.split('.').slice(0, 2).join('.'))
+      setWebServer('nginx')
+      setDatabase('mariadb')
+      setDatabaseVersion('11.8')
+      setAdminer(false)
+      setRedis(false)
+      setMailpit(false)
+      setXdebug(false)
+    }
+  }
 
   async function handlePickDirectory(): Promise<void> {
     const picked = await window.api.create.pickDirectory()
@@ -82,7 +101,24 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
     const name = projectName.trim()
     setIsSubmitting(true)
     try {
-      await createProject.mutateAsync({ directory, projectName: name, projectType, docroot, stack: { runtimeEngine, phpVersion, nodeVersion, webServer, database, databaseVersion, adminer, redis, mailpit, xdebug } })
+      await createProject.mutateAsync({
+        directory,
+        projectName: name,
+        projectType,
+        docroot,
+        stack: {
+          runtimeEngine,
+          phpVersion,
+          nodeVersion,
+          webServer,
+          database,
+          databaseVersion,
+          adminer,
+          redis,
+          mailpit,
+          xdebug
+        }
+      })
     } catch {
       setIsSubmitting(false)
       return
@@ -180,138 +216,285 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
 
           <div className="p-5">
             <div className="flex flex-col gap-5">
-            {step === 'site' ? (
-              <>
-                <div>
-                  <label className={labelClass}>Project folder</label>
-                  <button
-                    type="button"
-                    onClick={handlePickDirectory}
-                    className={clsx(
-                      'group flex w-full items-center gap-3 rounded-xl border border-dashed px-3 py-3 text-left text-sm transition',
-                      directory
-                        ? 'border-cyan-200 bg-cyan-50/60 text-neutral-900 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-neutral-100'
-                        : 'border-neutral-300 bg-neutral-50/70 text-neutral-500 hover:border-cyan-200 hover:bg-cyan-50/50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-cyan-400/25 dark:hover:bg-cyan-400/10'
+              {step === 'site' ? (
+                <>
+                  <div>
+                    <label className={labelClass}>Project folder</label>
+                    <button
+                      type="button"
+                      onClick={handlePickDirectory}
+                      className={clsx(
+                        'group flex w-full items-center gap-3 rounded-xl border border-dashed px-3 py-3 text-left text-sm transition',
+                        directory
+                          ? 'border-cyan-200 bg-cyan-50/60 text-neutral-900 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-neutral-100'
+                          : 'border-neutral-300 bg-neutral-50/70 text-neutral-500 hover:border-cyan-200 hover:bg-cyan-50/50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-cyan-400/25 dark:hover:bg-cyan-400/10'
+                      )}
+                    >
+                      <span className="grid size-9 flex-shrink-0 place-items-center rounded-lg bg-white text-cyan-700 shadow-sm dark:bg-neutral-950/70 dark:text-cyan-300">
+                        <FolderOpen size={17} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">
+                          {directory ?? 'Choose a folder…'}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400">
+                          This becomes the project root.
+                        </span>
+                      </span>
+                      {directory && (
+                        <Check size={16} className="text-cyan-700 dark:text-cyan-300" />
+                      )}
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Project name</label>
+                    <input
+                      type="text"
+                      value={projectName}
+                      onChange={(e) => setProjectName(e.target.value)}
+                      placeholder="my-project"
+                      className={fieldClass}
+                    />
+                    {trimmedName.length > 0 && !nameValid && (
+                      <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">
+                        Use only letters, numbers, and hyphens — no spaces (e.g. &quot;
+                        {slugifyProjectName(trimmedName) || 'my-project'}&quot;).
+                      </p>
                     )}
-                  >
-                    <span className="grid size-9 flex-shrink-0 place-items-center rounded-lg bg-white text-cyan-700 shadow-sm dark:bg-neutral-950/70 dark:text-cyan-300">
-                      <FolderOpen size={17} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">
-                        {directory ?? 'Choose a folder…'}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400">
-                        This becomes the project root.
-                      </span>
-                    </span>
-                    {directory && <Check size={16} className="text-cyan-700 dark:text-cyan-300" />}
-                  </button>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Project name</label>
-                  <input
-                    type="text"
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="my-project"
-                    className={fieldClass}
-                  />
-                  {trimmedName.length > 0 && !nameValid && (
-                    <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">
-                      Use only letters, numbers, and hyphens — no spaces (e.g. &quot;
-                      {slugifyProjectName(trimmedName) || 'my-project'}&quot;).
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className={labelClass}>Project type</label>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {applicationModules.map((module) => ({ value: module.id, label: module.name, defaults: module.defaults, creation: module.creation })).map((t) => {
-                      const Icon = TYPE_ICONS[t.value] ?? Boxes
-                      const isSelected = projectType === t.value
-
-                      return (
-                        <button
-                          key={t.value}
-                          type="button"
-                          onClick={() => {
-                            setProjectType(t.value)
-                            setPhpVersion(t.creation?.phpVersions?.[0] ?? '8.4')
-                            if (!docroot.trim() && t.defaults?.docroot) setDocroot(t.defaults.docroot)
-                          }}
-                          className={clsx(
-                            'flex min-h-16 items-center gap-3 rounded-xl border px-3 py-3 text-left transition',
-                            isSelected
-                              ? 'border-cyan-300 bg-cyan-50 text-cyan-950 shadow-sm shadow-cyan-900/5 dark:border-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-100'
-                              : 'border-neutral-200 bg-white/70 hover:border-cyan-200 hover:bg-cyan-50/50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-cyan-400/25 dark:hover:bg-cyan-400/10'
-                          )}
-                        >
-                          <span
-                            className={clsx(
-                              'grid size-9 flex-shrink-0 place-items-center rounded-lg',
-                              isSelected
-                                ? 'bg-cyan-600 text-white dark:bg-cyan-300 dark:text-neutral-950'
-                                : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-950/70 dark:text-neutral-400'
-                            )}
-                          >
-                            <Icon size={17} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-semibold">{t.label}</span>
-                            <span className="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400">
-                              {t.value ? 'Use Aurora type preset' : 'Let Aurora inspect it'}
-                            </span>
-                          </span>
-                        </button>
-                      )
-                    })}
-                    {applicationModules.length === 0 && <div className="col-span-full rounded-xl border border-dashed border-amber-300 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100"><p className="font-semibold">No application modules installed</p><p className="mt-1">Close this window and use <strong>Modules</strong> at the bottom of the sidebar to install one.</p></div>}
                   </div>
-                </div>
 
-                <div className="rounded-xl border border-neutral-200 bg-neutral-50/70 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-                  <div className="mb-3">
-                    <p className="text-sm font-semibold">Development stack</p>
-                    <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">Aurora core owns the runtime; the application is a module layered on top.</p>
-                  </div>
-                  <div className="mb-4 grid gap-2 sm:grid-cols-2">
-                    <div className="rounded-xl border border-cyan-300 bg-cyan-50 p-3 text-cyan-950 dark:border-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-100"><div className="flex items-center gap-2 text-sm font-semibold"><Container size={16}/> Container engine</div><p className="mt-1 text-xs text-cyan-800/80 dark:text-cyan-100/70">Current compatible engine · {runtimeStatus?.container.available ? runtimeStatus.container.provider : 'not detected'}</p></div>
-                    <div aria-disabled="true" className="rounded-xl border border-neutral-200 bg-neutral-100/70 p-3 opacity-70 dark:border-white/10 dark:bg-white/[0.03]"><div className="flex items-center gap-2 text-sm font-semibold"><Cpu size={16}/> Aurora Native</div><p className="mt-1 text-xs text-neutral-500">{runtimeStatus?.native.available ? `Runtime ${runtimeStatus.native.runtimeVersion} detected · provisioning checks pending` : 'Runtime bundle not installed yet'}</p></div>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div><label className={labelClass}>PHP</label><select className={fieldClass} value={phpVersion} onChange={(e)=>setPhpVersion(e.target.value)}>{(selectedModule?.creation?.phpVersions ?? ['8.2','8.3','8.4','8.5']).map(v=><option key={v}>{v}</option>)}</select></div>
-                    <div><label className={labelClass}>Node.js</label><select className={fieldClass} value={nodeVersion} onChange={(e)=>setNodeVersion(e.target.value)}>{['20','22','24'].map(v=><option key={v}>{v}</option>)}</select></div>
-                    <div><label className={labelClass}>Web server</label><select className={fieldClass} value={webServer} onChange={(e)=>setWebServer(e.target.value as 'nginx'|'apache')}><option value="nginx">nginx</option><option value="apache">Apache</option></select></div>
-                    <div><label className={labelClass}>Database</label><select className={fieldClass} value={`${database}:${databaseVersion}`} onChange={(e)=>{const [kind,version]=e.target.value.split(':');setDatabase(kind as 'mariadb'|'mysql'|'postgres');setDatabaseVersion(version)}}>{selectedModule?.creation?.databases?.includes('mariadb') !== false && <><option value="mariadb:11.8">MariaDB 11.8</option><option value="mariadb:10.11">MariaDB 10.11</option></>}{selectedModule?.creation?.databases?.includes('mysql') !== false && <><option value="mysql:8.4">MySQL 8.4</option><option value="mysql:8.0">MySQL 8.0</option></>}{selectedModule?.creation?.databases?.includes('postgres') !== false && <><option value="postgres:17">PostgreSQL 17</option><option value="postgres:16">PostgreSQL 16</option></>}</select></div>
-                    <div className="grid grid-cols-2 gap-2 pt-5">
-                      {[['Adminer',adminer,setAdminer],['Redis',redis,setRedis],['Mailpit',mailpit,setMailpit],['Xdebug',xdebug,setXdebug]].map(([label,value,setter])=><label key={label as string} className="flex items-center gap-2 text-xs font-medium"><input type="checkbox" checked={value as boolean} onChange={(e)=>(setter as (v:boolean)=>void)(e.target.checked)} />{label as string}</label>)}
+                  <div>
+                    <label className={labelClass}>Project type</label>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {applicationModules
+                        .map((module) => ({
+                          value: module.id,
+                          label: module.name,
+                          defaults: module.defaults,
+                          creation: module.creation
+                        }))
+                        .map((t) => {
+                          const Icon = TYPE_ICONS[t.value] ?? Boxes
+                          const isSelected = projectType === t.value
+
+                          return (
+                            <button
+                              key={t.value}
+                              type="button"
+                              onClick={() => {
+                                setProjectType(t.value)
+                                setPhpVersion(t.creation?.phpVersions?.[0] ?? '8.4')
+                                if (!docroot.trim() && t.defaults?.docroot)
+                                  setDocroot(t.defaults.docroot)
+                              }}
+                              className={clsx(
+                                'flex min-h-16 items-center gap-3 rounded-xl border px-3 py-3 text-left transition',
+                                isSelected
+                                  ? 'border-cyan-300 bg-cyan-50 text-cyan-950 shadow-sm shadow-cyan-900/5 dark:border-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-100'
+                                  : 'border-neutral-200 bg-white/70 hover:border-cyan-200 hover:bg-cyan-50/50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-cyan-400/25 dark:hover:bg-cyan-400/10'
+                              )}
+                            >
+                              <span
+                                className={clsx(
+                                  'grid size-9 flex-shrink-0 place-items-center rounded-lg',
+                                  isSelected
+                                    ? 'bg-cyan-600 text-white dark:bg-cyan-300 dark:text-neutral-950'
+                                    : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-950/70 dark:text-neutral-400'
+                                )}
+                              >
+                                <Icon size={17} />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-semibold">
+                                  {t.label}
+                                </span>
+                                <span className="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400">
+                                  {t.value ? 'Use Aurora type preset' : 'Let Aurora inspect it'}
+                                </span>
+                              </span>
+                            </button>
+                          )
+                        })}
+                      {applicationModules.length === 0 && (
+                        <div className="col-span-full rounded-xl border border-dashed border-amber-300 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+                          <p className="font-semibold">No application modules installed</p>
+                          <p className="mt-1">
+                            Close this window and use <strong>Modules</strong> at the bottom of the
+                            sidebar to install one.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className={labelClass}>Docroot (optional)</label>
-                  <input
-                    type="text"
-                    value={docroot}
-                    onChange={(e) => setDocroot(e.target.value)}
-                    placeholder="e.g. web, public — leave blank for project root"
-                    className={fieldClass}
-                  />
-                </div>
-              </>
-            ) : selectedModule ? (
-              <ExternalModuleSetup ref={setupRef} module={selectedModule} projectName={projectName.trim()} onValidityChange={setSetupValid} />
-            ) : (
-              <GenericSetup
-                ref={setupRef}
-                projectName={projectName.trim()}
-                onValidityChange={setSetupValid}
-              />
-            )}
+                  <div className="rounded-xl border border-neutral-200 bg-neutral-50/70 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                    <div className="mb-3">
+                      <p className="text-sm font-semibold">Development stack</p>
+                      <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                        Aurora core owns the runtime; the application is a module layered on top.
+                      </p>
+                    </div>
+                    <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => selectRuntimeEngine('container')}
+                        className={
+                          runtimeEngine === 'container'
+                            ? 'rounded-xl border border-cyan-400 bg-cyan-50 p-3 text-left text-cyan-950 ring-2 ring-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-100'
+                            : 'rounded-xl border border-neutral-200 bg-white p-3 text-left dark:border-white/10 dark:bg-white/[0.03]'
+                        }
+                      >
+                        <div className="flex items-center gap-2 text-sm font-semibold">
+                          <Container size={16} /> Container engine
+                        </div>
+                        <p className="mt-1 text-xs text-neutral-500">
+                          {runtimeStatus?.container.available
+                            ? runtimeStatus.container.provider
+                            : 'not detected'}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!runtimeStatus?.native.available}
+                        onClick={() => selectRuntimeEngine('native')}
+                        className={
+                          runtimeEngine === 'native'
+                            ? 'rounded-xl border border-cyan-400 bg-cyan-50 p-3 text-left text-cyan-950 ring-2 ring-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-100'
+                            : 'rounded-xl border border-neutral-200 bg-white p-3 text-left disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.03]'
+                        }
+                      >
+                        <div className="flex items-center gap-2 text-sm font-semibold">
+                          <Cpu size={16} /> Aurora Native
+                        </div>
+                        <p className="mt-1 text-xs text-neutral-500">
+                          {runtimeStatus?.native.available
+                            ? `Runtime ${runtimeStatus.native.runtimeVersion} · no Docker required`
+                            : 'Install the runtime from Settings first'}
+                        </p>
+                      </button>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={labelClass}>PHP</label>
+                        <select
+                          className={fieldClass}
+                          value={phpVersion}
+                          onChange={(e) => setPhpVersion(e.target.value)}
+                        >
+                          {(
+                            selectedModule?.creation?.phpVersions ?? ['8.2', '8.3', '8.4', '8.5']
+                          ).map((v) => (
+                            <option key={v}>{v}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Node.js</label>
+                        <select
+                          disabled={runtimeEngine === 'native'}
+                          className={fieldClass}
+                          value={nodeVersion}
+                          onChange={(e) => setNodeVersion(e.target.value)}
+                        >
+                          {['20', '22', '24'].map((v) => (
+                            <option key={v}>{v}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Web server</label>
+                        <select
+                          disabled={runtimeEngine === 'native'}
+                          className={fieldClass}
+                          value={webServer}
+                          onChange={(e) => setWebServer(e.target.value as 'nginx' | 'apache')}
+                        >
+                          <option value="nginx">nginx</option>
+                          <option value="apache">Apache</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Database</label>
+                        <select
+                          disabled={runtimeEngine === 'native'}
+                          className={fieldClass}
+                          value={`${database}:${databaseVersion}`}
+                          onChange={(e) => {
+                            const [kind, version] = e.target.value.split(':')
+                            setDatabase(kind as 'mariadb' | 'mysql' | 'postgres')
+                            setDatabaseVersion(version)
+                          }}
+                        >
+                          {selectedModule?.creation?.databases?.includes('mariadb') !== false && (
+                            <>
+                              <option value="mariadb:11.8">MariaDB 11.8</option>
+                              <option value="mariadb:10.11">MariaDB 10.11</option>
+                            </>
+                          )}
+                          {selectedModule?.creation?.databases?.includes('mysql') !== false && (
+                            <>
+                              <option value="mysql:8.4">MySQL 8.4</option>
+                              <option value="mysql:8.0">MySQL 8.0</option>
+                            </>
+                          )}
+                          {selectedModule?.creation?.databases?.includes('postgres') !== false && (
+                            <>
+                              <option value="postgres:17">PostgreSQL 17</option>
+                              <option value="postgres:16">PostgreSQL 16</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-5">
+                        {[
+                          ['Adminer', adminer, setAdminer],
+                          ['Redis', redis, setRedis],
+                          ['Mailpit', mailpit, setMailpit],
+                          ['Xdebug', xdebug, setXdebug]
+                        ].map(([label, value, setter]) => (
+                          <label
+                            key={label as string}
+                            className="flex items-center gap-2 text-xs font-medium"
+                          >
+                            <input
+                              type="checkbox"
+                              disabled={runtimeEngine === 'native'}
+                              checked={value as boolean}
+                              onChange={(e) => (setter as (v: boolean) => void)(e.target.checked)}
+                            />
+                            {label as string}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Docroot (optional)</label>
+                    <input
+                      type="text"
+                      value={docroot}
+                      onChange={(e) => setDocroot(e.target.value)}
+                      placeholder="e.g. web, public — leave blank for project root"
+                      className={fieldClass}
+                    />
+                  </div>
+                </>
+              ) : selectedModule ? (
+                <ExternalModuleSetup
+                  ref={setupRef}
+                  module={selectedModule}
+                  projectName={projectName.trim()}
+                  onValidityChange={setSetupValid}
+                />
+              ) : (
+                <GenericSetup
+                  ref={setupRef}
+                  projectName={projectName.trim()}
+                  onValidityChange={setSetupValid}
+                />
+              )}
             </div>
           </div>
 

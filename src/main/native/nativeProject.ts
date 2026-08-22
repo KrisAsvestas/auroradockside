@@ -14,6 +14,11 @@ export interface NativeProjectDefinition {
   root: string
   docroot: string
   ports: AuroraNativePorts
+  installedRuntimeRoot?: string
+}
+
+function installedRoot(project: NativeProjectDefinition): string {
+  return project.installedRuntimeRoot ?? runtimeRoot()
 }
 
 function nativeDirectory(root: string): string {
@@ -53,6 +58,11 @@ error_log "${quoteNginx(join(directory, 'logs', 'nginx.log'))}" info;
 events { worker_connections 256; }
 http {
   access_log "${quoteNginx(join(directory, 'logs', 'nginx-access.log'))}";
+  client_body_temp_path "${quoteNginx(join(directory, 'tmp', 'nginx-client'))}";
+  proxy_temp_path "${quoteNginx(join(directory, 'tmp', 'nginx-proxy'))}";
+  fastcgi_temp_path "${quoteNginx(join(directory, 'tmp', 'nginx-fastcgi'))}";
+  uwsgi_temp_path "${quoteNginx(join(directory, 'tmp', 'nginx-uwsgi'))}";
+  scgi_temp_path "${quoteNginx(join(directory, 'tmp', 'nginx-scgi'))}";
   server {
     listen 127.0.0.1:${project.ports.http};
     server_name localhost;
@@ -65,9 +75,17 @@ http {
       fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
       fastcgi_param SCRIPT_NAME $fastcgi_script_name;
       fastcgi_param REQUEST_METHOD $request_method;
+      fastcgi_param REQUEST_URI $request_uri;
       fastcgi_param QUERY_STRING $query_string;
       fastcgi_param CONTENT_TYPE $content_type;
       fastcgi_param CONTENT_LENGTH $content_length;
+      fastcgi_param DOCUMENT_ROOT $document_root;
+      fastcgi_param SERVER_PROTOCOL $server_protocol;
+      fastcgi_param SERVER_NAME $server_name;
+      fastcgi_param SERVER_PORT $server_port;
+      fastcgi_param HTTP_HOST $http_host;
+      fastcgi_param REMOTE_ADDR $remote_addr;
+      fastcgi_param REMOTE_PORT $remote_port;
     }
   }
 }
@@ -94,18 +112,32 @@ skip-name-resolve
 
 export async function provisionNativeProject(project: NativeProjectDefinition): Promise<void> {
   const directory = nativeDirectory(project.root)
-  for (const child of ['config', 'data/mariadb', 'logs', 'pids', 'tmp'])
+  for (const child of [
+    'config',
+    'data/mariadb',
+    'logs',
+    'pids',
+    'tmp',
+    'tmp/nginx-client',
+    'tmp/nginx-proxy',
+    'tmp/nginx-fastcgi',
+    'tmp/nginx-uwsgi',
+    'tmp/nginx-scgi'
+  ])
     await mkdir(join(directory, child), { recursive: true })
   await Promise.all([
     writeFile(join(directory, 'config', 'php-fpm.conf'), renderPhpFpmConfig(project)),
     writeFile(join(directory, 'config', 'nginx.conf'), renderNginxConfig(project)),
-    writeFile(join(directory, 'config', 'mariadb.cnf'), renderMariaDbConfig(project))
+    writeFile(
+      join(directory, 'config', 'mariadb.cnf'),
+      renderMariaDbConfig(project, installedRoot(project))
+    )
   ])
   try {
     await access(join(directory, 'data', 'mariadb', 'mysql'))
   } catch {
     await execFileAsync(
-      join(runtimeRoot(), 'bin', 'mariadb-install-db'),
+      join(installedRoot(project), 'bin', 'mariadb-install-db'),
       [
         '--no-defaults',
         `--datadir=${join(directory, 'data', 'mariadb')}`,
@@ -129,19 +161,19 @@ export function nativeServiceSpecs(project: NativeProjectDefinition): NativeServ
   return [
     {
       ...common('database'),
-      command: join(runtimeRoot(), 'bin', 'mariadbd'),
+      command: join(installedRoot(project), 'bin', 'mariadbd'),
       args: [`--defaults-file=${join(directory, 'config', 'mariadb.cnf')}`],
       ready: { port: project.ports.database, timeoutMs: 30000 }
     },
     {
       ...common('php'),
-      command: join(runtimeRoot(), 'bin', 'php-fpm'),
+      command: join(installedRoot(project), 'bin', 'php-fpm'),
       args: ['--nodaemonize', '--fpm-config', join(directory, 'config', 'php-fpm.conf')],
       ready: { port: project.ports.php }
     },
     {
       ...common('web'),
-      command: join(runtimeRoot(), 'bin', 'nginx'),
+      command: join(installedRoot(project), 'bin', 'nginx'),
       args: ['-c', join(directory, 'config', 'nginx.conf'), '-p', `${directory}/`],
       ready: { port: project.ports.http }
     }

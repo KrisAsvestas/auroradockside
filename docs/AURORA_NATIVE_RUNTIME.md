@@ -12,24 +12,25 @@ Each signed runtime bundle contains a `runtime.json` manifest plus versioned exe
 
 Runtime archives are created from a staging directory with `npm run build:native-runtime -- <staging-directory> <output.tar.gz>`. The packager resolves every executable inside the staging root, calculates its SHA-256 checksum, writes the immutable `runtime.json`, excludes the build template, and creates the distributable archive. Dockside independently verifies those checksums before declaring a runtime available.
 
-The first reproducible bundle target is Linux x64. Run `npm run build:native-linux-x64` on a Docker-capable build machine. Docker is used only to create the portable artifact; users of that artifact do not need Docker. The recipe pins PHP 8.5.9, nginx 1.30.4, and MariaDB 11.8.8 with their runtime libraries, runs version smoke checks outside the build container, and then invokes the normal checksum packager.
+The first reproducible bundle target is Linux x64. Run `npm run build:native-linux-x64` on a Docker-capable build machine. Docker is used only to create the portable artifact; users of that artifact do not need Docker. The recipe pins PHP 8.5.9, nginx 1.30.4, MariaDB 11.8.8, and WP-CLI 2.12.0 with their runtime libraries, runs executable, PHP-extension, and database-initialization smoke checks outside the build container, and then invokes the normal checksum packager.
 
 Dockside can install a bundled runtime or a user-selected runtime archive from Settings. Installation rejects absolute and parent-traversing archive entries, rejects symbolic links, verifies the target platform and architecture, and verifies every declared executable checksum before atomically replacing an older runtime. Electron packages include matching archives from `dist/native-runtime` when they are present at packaging time.
 
 ## Isolation model
 
-Every project receives reserved loopback ports, generated service configuration, isolated database data, logs, PID files, and environment variables below `.aurora/native`. A shared Aurora router owns friendly HTTPS project hostnames. Project files remain directly accessible on the host.
+Every project receives reserved loopback ports, generated service configuration, isolated database data, logs, PID files, nginx temporary storage, and environment variables below `.aurora/native`. Native projects currently use a direct loopback HTTP URL; container projects retain Aurora's friendly HTTP/HTTPS router names. Project files remain directly accessible on the host.
 
 ## Delivery sequence
 
 1. Runtime manifest, platform detection, checksum verification, and engine abstraction.
 2. Native process supervisor and loopback port allocator.
-3. Linux x64 bundle with PHP 8.4, nginx, and MariaDB 11.8.
-4. WordPress provisioning, lifecycle, logs, database import/export, and Adminer.
-5. macOS arm64/x64 and Windows x64 bundles.
-6. Additional PHP/database versions, Apache, Drupal, Node.js, and developer services.
+3. Linux x64 bundle with PHP 8.5, nginx, MariaDB 11.8, and WP-CLI.
+4. Native project lifecycle and single-site WordPress provisioning.
+5. Native logs, database import/export, and database administration.
+6. macOS arm64/x64 and Windows x64 bundles.
+7. Additional PHP/database versions, Apache, Drupal, Node.js, and developer services.
 
-Native project creation must stay disabled until the platform bundle passes executable, service-health, database, routing, and cleanup checks. Existing projects default to the container engine for backward compatibility.
+Dockside enables native project creation only when an installed platform bundle contains the selected PHP branch, nginx, MariaDB 11.8, and WP-CLI. Existing projects default to the container engine for backward compatibility. The native smoke suite starts all three services, serves PHP through FastCGI, provisions a real WordPress site, and verifies its HTTP response and cleanup.
 
 ## Runtime update notifications
 

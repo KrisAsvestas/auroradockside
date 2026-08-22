@@ -28,7 +28,8 @@ for (const executable of [
   'php-fpm',
   'nginx',
   'mariadbd',
-  'mariadb-install-db'
+  'mariadb-install-db',
+  'wp'
 ]) {
   const path = join(stagingRoot, 'bin', executable)
   if (!existsSync(path)) throw new Error(`Builder did not produce ${path}`)

@@ -28,6 +28,12 @@ const checks = [
     join(root, 'bin/mariadbd'),
     ['--version'],
     template.components.find((item) => item.id === 'mariadb')?.version
+  ],
+  [
+    'WP-CLI',
+    join(root, 'bin/wp'),
+    ['--version'],
+    template.components.find((item) => item.id === 'wp-cli')?.version
   ]
 ]
 for (const [name, command, args, version] of checks) {
@@ -39,6 +45,15 @@ for (const [name, command, args, version] of checks) {
     throw new Error(`${name} did not report expected version ${version}: ${output}`)
   process.stdout.write(`${name} ${version} OK\n`)
 }
+
+const extensions = spawnSync(
+  join(root, 'bin/php'),
+  ['-r', "exit(extension_loaded('mysqli') && extension_loaded('pdo_mysql') ? 0 : 1);"],
+  { encoding: 'utf8' }
+)
+if (extensions.error || extensions.status !== 0)
+  throw extensions.error || new Error(`PHP database extensions failed: ${extensions.stderr}`)
+process.stdout.write('PHP mysqli and pdo_mysql extensions OK\n')
 
 const databaseDirectory = mkdtempSync(join(tmpdir(), 'aurora-native-mariadb-'))
 const temporaryDirectory = mkdtempSync(join(tmpdir(), 'aurora-native-mariadb-tmp-'))
