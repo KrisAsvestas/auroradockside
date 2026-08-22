@@ -12,6 +12,8 @@ Each signed runtime bundle contains a `runtime.json` manifest plus versioned exe
 
 Runtime archives are created from a staging directory with `npm run build:native-runtime -- <staging-directory> <output.tar.gz>`. The packager resolves every executable inside the staging root, calculates its SHA-256 checksum, writes the immutable `runtime.json`, excludes the build template, and creates the distributable archive. Dockside independently verifies those checksums before declaring a runtime available.
 
+The first reproducible bundle target is Linux x64. Run `npm run build:native-linux-x64` on a Docker-capable build machine. Docker is used only to create the portable artifact; users of that artifact do not need Docker. The recipe pins PHP 8.5.9, nginx 1.30.4, and MariaDB 11.8.8 with their runtime libraries, runs version smoke checks outside the build container, and then invokes the normal checksum packager.
+
 ## Isolation model
 
 Every project receives reserved loopback ports, generated service configuration, isolated database data, logs, PID files, and environment variables below `.aurora/native`. A shared Aurora router owns friendly HTTPS project hostnames. Project files remain directly accessible on the host.

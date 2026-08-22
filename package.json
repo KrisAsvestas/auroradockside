@@ -22,6 +22,7 @@
     "build:modules": "node scripts/package-modules.cjs",
     "build:connector": "node scripts/package-connector.cjs",
     "build:native-runtime": "node scripts/package-native-runtime.cjs",
+    "build:native-linux-x64": "node scripts/build-native-linux-x64.cjs",
     "check:php-releases": "node scripts/check-php-releases.mjs",
     "module:new": "node scripts/create-module.cjs",
     "postinstall": "electron-builder install-app-deps",
