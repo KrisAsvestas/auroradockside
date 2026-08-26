@@ -2,9 +2,9 @@
 
 const { mkdirSync, readFileSync, readdirSync, rmSync } = require('fs')
 const { join, resolve } = require('path')
-const { spawnSync } = require('child_process')
+const archiveDirectory = require('./archive-directory.cjs')
 
-function packageModules() {
+async function packageModules() {
   const projectRoot = resolve(__dirname, '..')
   const packagesRoot = join(projectRoot, 'packages')
   const catalogRoot = join(projectRoot, 'dist', 'module-catalog')
@@ -22,13 +22,15 @@ function packageModules() {
     if (!manifest.id || !manifest.version) throw new Error(`Invalid module manifest in ${source}`)
     const output = join(catalogRoot, `${manifest.id}-${manifest.version}.pac`)
     rmSync(output, { force: true })
-    const result = spawnSync('zip', ['-qr', output, '.'], { cwd: source, stdio: 'inherit' })
-    if (result.error) throw result.error
-    if (result.status !== 0) throw new Error(`zip failed for ${manifest.id} with exit code ${result.status}`)
+    await archiveDirectory(source, output)
     process.stdout.write(`  • packaged module  ${manifest.id}@${manifest.version} → ${output}\n`)
   }
 }
 
 module.exports = packageModules
 
-if (require.main === module) packageModules()
+if (require.main === module)
+  packageModules().catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+  })
