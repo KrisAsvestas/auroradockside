@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { allocateNativePorts } from './portAllocator'
 import { NativeProcessSupervisor } from './processSupervisor'
 
-describe('native process supervisor', () => {
+describe.skipIf(process.platform === 'win32')('native process supervisor', () => {
   it('starts, health-checks, logs, and stops a native service', async () => {
     const root = await mkdtemp(join(tmpdir(), 'aurora-native-supervisor-'))
     const port = (await allocateNativePorts()).http
