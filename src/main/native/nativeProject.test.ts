@@ -2,7 +2,7 @@ import { execFile, spawn } from 'child_process'
 import { createRequire } from 'module'
 import { mkdtemp, readFile, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { promisify } from 'util'
 import { describe, expect, it } from 'vitest'
 import {
@@ -15,9 +15,11 @@ import {
 } from './nativeProject'
 import { allocateNativePorts } from './portAllocator'
 
+const projectRoot = join(tmpdir(), 'aurora demo')
+const installedRuntimeRoot = join(tmpdir(), 'aurora-runtime')
 const project = {
   name: 'demo',
-  root: '/tmp/aurora demo',
+  root: projectRoot,
   docroot: 'public',
   ports: { http: 41001, php: 41002, database: 41003, node: 41004 }
 }
@@ -47,23 +49,28 @@ describe('native project configuration', () => {
     expect(config).toContain('listen 127.0.0.1:41001')
     expect(config).toContain('fastcgi_pass 127.0.0.1:41002')
     expect(config).toContain('location ~ \\.php$')
-    expect(config).toContain('aurora demo/public')
+    expect(config).toContain(resolve(projectRoot, 'public').replace(/\\/g, '\\\\'))
   })
   it('isolates MariaDB data and networking', () => {
-    const config = renderMariaDbConfig(project, '/tmp/aurora-runtime')
+    const config = renderMariaDbConfig(project, installedRuntimeRoot)
     expect(config).toContain('bind-address=127.0.0.1')
     expect(config).toContain('port=41003')
-    expect(config).toContain('/.aurora/native/data/mariadb')
+    expect(config).toContain(join(projectRoot, '.aurora', 'native', 'data', 'mariadb'))
   })
   it('creates a loopback Adminer endpoint with project database credentials', () => {
     expect(renderNginxConfig(project)).toContain('location = /__aurora/adminer/')
     const bootstrap = renderNativeAdminerBootstrap({
       ...project,
-      installedRuntimeRoot: '/tmp/aurora-runtime'
+      installedRuntimeRoot
     })
     expect(bootstrap).toContain("value = '127.0.0.1:41003'")
     expect(bootstrap).toContain("username.value = 'db'")
-    expect(bootstrap).toContain('/tmp/aurora-runtime/root/usr/share/aurora/adminer.php')
+    expect(bootstrap).toContain(
+      join(installedRuntimeRoot, 'root', 'usr', 'share', 'aurora', 'adminer.php').replace(
+        /\\/g,
+        '\\\\'
+      )
+    )
   })
 })
 
