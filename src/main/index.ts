@@ -14,6 +14,7 @@ import { registerRemoteIpc } from './ipc/remote'
 import { registerRuntimeIpc } from './ipc/runtime'
 import { killAllRunningCommands, powerOffAllProjects } from './commandRunner'
 import { startAutomaticUpdates } from './updater'
+import { ensureBundledNativeRuntime } from './nativeRuntime'
 
 function createWindow(): void {
   // Create the browser window.
@@ -51,7 +52,7 @@ function createWindow(): void {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.aurora-dockside.app')
 
@@ -73,6 +74,7 @@ app.whenReady().then(() => {
   registerRemoteIpc()
   registerRuntimeIpc()
 
+  await ensureBundledNativeRuntime()
   createWindow()
   startAutomaticUpdates()
 

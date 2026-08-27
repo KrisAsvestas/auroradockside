@@ -61,7 +61,16 @@ async function runDatabasePipe(
       docroot: config.docroot,
       ports: config.nativePorts
     })
-    command = join(runtimeRoot(), 'bin', mode === 'dump' ? 'mariadb-dump' : 'mariadb')
+    command =
+      process.platform === 'win32'
+        ? join(
+            runtimeRoot(),
+            'bin',
+            'mariadb',
+            'bin',
+            mode === 'dump' ? 'mariadb-dump.exe' : 'mariadb.exe'
+          )
+        : join(runtimeRoot(), 'bin', mode === 'dump' ? 'mariadb-dump' : 'mariadb')
     args = [
       '--host=127.0.0.1',
       `--port=${config.nativePorts.database}`,

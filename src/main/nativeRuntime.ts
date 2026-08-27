@@ -136,7 +136,13 @@ export async function installNativeRuntimeArchive(source: string): Promise<Auror
     validateArchiveEntries(stdout)
     await execFileAsync(
       'tar',
-      ['-xzf', source, '--no-same-owner', '--no-same-permissions', '-C', staging],
+      [
+        '-xzf',
+        source,
+        ...(process.platform === 'win32' ? [] : ['--no-same-owner', '--no-same-permissions']),
+        '-C',
+        staging
+      ],
       { maxBuffer: 16 * 1024 * 1024 }
     )
     await rejectLinks(staging)
@@ -186,6 +192,16 @@ export async function installBundledNativeRuntime(): Promise<AuroraRuntimeStatus
       `No bundled Aurora Native runtime is available for ${process.platform}-${process.arch}.`
     )
   return installNativeRuntimeArchive(join(directory, basename(archive)))
+}
+
+export async function ensureBundledNativeRuntime(): Promise<void> {
+  if ((await nativeStatus()).available) return
+  try {
+    await installBundledNativeRuntime()
+  } catch (error) {
+    // Development builds and platforms without a packaged target keep the manual installer available.
+    console.warn('Aurora Native bundled runtime was not installed:', error)
+  }
 }
 
 async function nativeStatus(): Promise<AuroraRuntimeStatus['native']> {

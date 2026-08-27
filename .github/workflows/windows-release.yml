@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Existing GitHub release tag to receive the Windows installer
         required: true
-        default: v2.0.0-alpha.28
+        default: v2.0.0-alpha.29
   push:
     tags:
       - 'v*'
@@ -36,6 +36,13 @@ jobs:
         run: |
           npm run typecheck
           npm run test:run
+
+      - name: Build and verify Aurora Native for Windows
+        shell: pwsh
+        run: |
+          ./runtime-build/windows-x64/stage-runtime.ps1
+          node scripts/smoke-native-runtime.cjs dist/native-runtime-stage/win32-x64
+          node scripts/package-native-runtime.cjs dist/native-runtime-stage/win32-x64 dist/native-runtime/aurora-native-0.1.0-win32-x64.tar.gz
 
       - name: Read application version
         shell: pwsh
@@ -68,6 +75,7 @@ jobs:
             dist/latest.yml
             dist/SHA256SUMS-windows.txt
             dist/module-catalog/*.pac
+            dist/native-runtime/aurora-native-0.1.0-win32-x64.tar.gz
 
       - name: Publish Windows assets
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'

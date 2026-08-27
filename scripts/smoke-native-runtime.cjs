@@ -10,40 +10,37 @@ const root = resolve(process.argv[2] || '')
 if (!root || !existsSync(join(root, 'runtime.template.json')))
   throw new Error('Usage: node scripts/smoke-native-runtime.cjs <staging-directory>')
 const template = JSON.parse(readFileSync(join(root, 'runtime.template.json'), 'utf8'))
+const windows = template.platform === 'win32'
+const php = windows ? join(root, 'bin/php/php.exe') : join(root, 'bin/php')
 const checks = [
-  [
-    'PHP',
-    join(root, 'bin/php'),
-    ['--version'],
-    template.components.find((item) => item.id === 'php')?.version
-  ],
+  ['PHP', php, ['--version'], template.components.find((item) => item.id === 'php')?.version],
   [
     'nginx',
-    join(root, 'bin/nginx'),
+    windows ? join(root, 'bin/nginx/nginx.exe') : join(root, 'bin/nginx'),
     ['-v'],
     template.components.find((item) => item.id === 'nginx')?.version
   ],
   [
     'MariaDB',
-    join(root, 'bin/mariadbd'),
+    windows ? join(root, 'bin/mariadb/bin/mariadbd.exe') : join(root, 'bin/mariadbd'),
     ['--version'],
     template.components.find((item) => item.id === 'mariadb')?.version
   ],
   [
     'WP-CLI',
-    join(root, 'bin/wp'),
-    ['--version'],
+    windows ? php : join(root, 'bin/wp'),
+    windows ? [join(root, 'tools/wp-cli.phar'), '--version'] : ['--version'],
     template.components.find((item) => item.id === 'wp-cli')?.version
   ],
   [
     'MariaDB client',
-    join(root, 'bin/mariadb'),
+    windows ? join(root, 'bin/mariadb/bin/mariadb.exe') : join(root, 'bin/mariadb'),
     ['--version'],
     template.components.find((item) => item.id === 'mariadb')?.version
   ],
   [
     'MariaDB dump',
-    join(root, 'bin/mariadb-dump'),
+    windows ? join(root, 'bin/mariadb/bin/mariadb-dump.exe') : join(root, 'bin/mariadb-dump'),
     ['--version'],
     template.components.find((item) => item.id === 'mariadb')?.version
   ]
@@ -59,7 +56,7 @@ for (const [name, command, args, version] of checks) {
 }
 
 const extensions = spawnSync(
-  join(root, 'bin/php'),
+  php,
   ['-r', "exit(extension_loaded('mysqli') && extension_loaded('pdo_mysql') ? 0 : 1);"],
   { encoding: 'utf8' }
 )
@@ -68,8 +65,11 @@ if (extensions.error || extensions.status !== 0)
 process.stdout.write('PHP mysqli and pdo_mysql extensions OK\n')
 
 const adminer = spawnSync(
-  join(root, 'bin/php'),
-  ['-l', join(root, 'root/usr/share/aurora/adminer.php')],
+  php,
+  [
+    '-l',
+    windows ? join(root, 'tools/adminer.php') : join(root, 'root/usr/share/aurora/adminer.php')
+  ],
   { encoding: 'utf8' }
 )
 if (adminer.error || adminer.status !== 0)
@@ -80,14 +80,18 @@ const databaseDirectory = mkdtempSync(join(tmpdir(), 'aurora-native-mariadb-'))
 const temporaryDirectory = mkdtempSync(join(tmpdir(), 'aurora-native-mariadb-tmp-'))
 try {
   const result = spawnSync(
-    join(root, 'bin/mariadb-install-db'),
-    [
-      '--no-defaults',
-      `--datadir=${databaseDirectory}`,
-      `--tmpdir=${temporaryDirectory}`,
-      '--auth-root-authentication-method=normal',
-      '--skip-test-db'
-    ],
+    windows
+      ? join(root, 'bin/mariadb/bin/mariadb-install-db.exe')
+      : join(root, 'bin/mariadb-install-db'),
+    windows
+      ? [`--datadir=${databaseDirectory}`, '--password=']
+      : [
+          '--no-defaults',
+          `--datadir=${databaseDirectory}`,
+          `--tmpdir=${temporaryDirectory}`,
+          '--auth-root-authentication-method=normal',
+          '--skip-test-db'
+        ],
     { encoding: 'utf8' }
   )
   if (result.error || result.status !== 0)

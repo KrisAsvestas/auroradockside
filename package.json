@@ -1,6 +1,6 @@
 {
   "name": "aurora-dockside",
-  "version": "2.0.0-alpha.28",
+  "version": "2.0.0-alpha.29",
   "description": "A modern, modular Docker development platform for building, running, and managing web applications locally.",
   "desktopName": "aurora-dockside.desktop",
   "main": "./out/main/index.js",
@@ -23,6 +23,7 @@
     "build:connector": "node scripts/package-connector.cjs",
     "build:native-runtime": "node scripts/package-native-runtime.cjs",
     "build:native-linux-x64": "node scripts/build-native-linux-x64.cjs",
+    "build:native-windows-x64": "powershell -ExecutionPolicy Bypass -File runtime-build/windows-x64/stage-runtime.ps1",
     "check:php-releases": "node scripts/check-php-releases.mjs",
     "module:new": "node scripts/create-module.cjs",
     "postinstall": "electron-builder install-app-deps",

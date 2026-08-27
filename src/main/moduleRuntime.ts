@@ -109,8 +109,18 @@ export async function runModuleLifecycleHook(
       urls: urls ? Object.freeze(urls) : undefined,
       native: nativeDefinition
         ? Object.freeze({
-            php: join(runtimeRoot(), 'bin', 'php'),
-            wp: join(runtimeRoot(), 'bin', 'wp'),
+            php:
+              process.platform === 'win32'
+                ? join(runtimeRoot(), 'bin', 'php', 'php.exe')
+                : join(runtimeRoot(), 'bin', 'php'),
+            wp:
+              process.platform === 'win32'
+                ? join(runtimeRoot(), 'bin', 'php', 'php.exe')
+                : join(runtimeRoot(), 'bin', 'wp'),
+            wpPrefixArgs:
+              process.platform === 'win32'
+                ? ['-d', 'memory_limit=512M', join(runtimeRoot(), 'tools', 'wp-cli.phar')]
+                : [],
             databaseHost: '127.0.0.1',
             databasePort: nativeDefinition.ports.database,
             start: () => startNativeProject(nativeDefinition)

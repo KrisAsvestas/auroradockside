@@ -38,11 +38,12 @@ exports.projectCreate = async function projectCreate(context) {
   const s = context.settings
   const title = String(s.title || '').trim() || context.projectName
   const native = context.environment.runtimeEngine === 'native'
-  const base = native ? [`--path=${context.directory}`] : wpArgs(context, false)
+  const nativePrefix = native ? context.native.wpPrefixArgs || [] : []
+  const base = native ? [...nativePrefix, `--path=${context.directory}`] : wpArgs(context, false)
   const networkBase = native ? base : wpArgs(context, true)
   const command = native ? context.native.wp : 'docker'
   const siteUrl = native ? context.urls.http : context.urls.https
-  const wp = (label, args) => context.run(label, command, [...(native ? [] : networkBase), ...args])
+  const wp = (label, args) => context.run(label, command, [...networkBase, ...args])
   if (native) {
     await context.native.start()
     const port = Number(context.native.databasePort)

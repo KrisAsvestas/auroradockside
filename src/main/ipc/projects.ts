@@ -118,6 +118,7 @@ export function registerProjectsIpc(): void {
       const php = nativeServiceSpecs(native)
         .find((spec) => spec.id.endsWith(':php'))
         ?.command.replace(/php-fpm$/, 'php')
+        .replace(/php-cgi\.exe$/i, 'php.exe')
       if (!php) throw new Error('Native PHP executable not found.')
       return runCommandStreamed(id, php, ['-i'], e.sender, { cwd: native.root })
     }
