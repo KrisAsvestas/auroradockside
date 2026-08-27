@@ -65,12 +65,11 @@ describe('native project configuration', () => {
     })
     expect(bootstrap).toContain("value = '127.0.0.1:41003'")
     expect(bootstrap).toContain("username.value = 'db'")
-    expect(bootstrap).toContain(
-      join(installedRuntimeRoot, 'root', 'usr', 'share', 'aurora', 'adminer.php').replace(
-        /\\/g,
-        '\\\\'
-      )
-    )
+    const adminer =
+      process.platform === 'win32'
+        ? join(installedRuntimeRoot, 'tools', 'adminer.php')
+        : join(installedRuntimeRoot, 'root', 'usr', 'share', 'aurora', 'adminer.php')
+    expect(bootstrap).toContain(adminer.replace(/\\/g, '\\\\'))
   })
 })
 
