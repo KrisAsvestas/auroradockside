@@ -2,8 +2,9 @@
 
 const { ZipArchive } = require('archiver')
 const { createWriteStream } = require('fs')
-const { lstat, readlink, readdir } = require('fs/promises')
+const { lstat, readFile, readlink, readdir } = require('fs/promises')
 const { join, relative, sep } = require('path')
+const archiveDate = new Date('2000-01-01T00:00:00.000Z')
 
 function archiveName(root, value) {
   return relative(root, value).split(sep).join('/')
@@ -17,10 +18,10 @@ async function appendDirectory(archive, root, directory) {
     if (stats.isSymbolicLink()) {
       archive.symlink(name, await readlink(absolute), stats.mode)
     } else if (stats.isDirectory()) {
-      archive.append('', { name: `${name}/` })
+      archive.append('', { name: `${name}/`, date: archiveDate })
       await appendDirectory(archive, root, absolute)
     } else if (stats.isFile()) {
-      archive.file(absolute, { name, mode: stats.mode })
+      archive.append(await readFile(absolute), { name, mode: stats.mode, date: archiveDate })
     }
   }
 }
