@@ -61,13 +61,15 @@ describe('native project configuration', () => {
     expect(config).toContain('listen 127.0.0.1:41001')
     expect(config).toContain('fastcgi_pass 127.0.0.1:41002')
     expect(config).toContain('location ~ \\.php$')
-    expect(config).toContain(resolve(projectRoot, 'public').replace(/\\/g, '\\\\'))
+    expect(config).toContain(nativeConfigPath(resolve(projectRoot, 'public')))
   })
   it('isolates MariaDB data and networking', () => {
     const config = renderMariaDbConfig(project, installedRuntimeRoot)
     expect(config).toContain('bind-address=127.0.0.1')
     expect(config).toContain('port=41003')
-    expect(config).toContain(join(projectRoot, '.aurora', 'native', 'data', 'mariadb'))
+    expect(config).toContain(
+      nativeConfigPath(join(projectRoot, '.aurora', 'native', 'data', 'mariadb'))
+    )
   })
   it('creates a loopback Adminer endpoint with project database credentials', () => {
     expect(renderNginxConfig(project)).toContain('location = /__aurora/adminer/')
