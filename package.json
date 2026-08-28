@@ -1,6 +1,6 @@
 {
   "name": "aurora-dockside",
-  "version": "2.0.0-alpha.35",
+  "version": "2.0.0-alpha.36",
   "description": "A modern, modular Docker development platform for building, running, and managing web applications locally.",
   "desktopName": "aurora-dockside.desktop",
   "main": "./out/main/index.js",

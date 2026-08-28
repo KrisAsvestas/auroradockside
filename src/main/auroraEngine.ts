@@ -2,7 +2,7 @@ import { app } from 'electron'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { mkdir, readFile, writeFile, access, rm, readdir } from 'fs/promises'
-import { join } from 'path'
+import { delimiter, join } from 'path'
 import type {
   AuroraProjectDetail,
   AuroraProjectSummary,
@@ -28,8 +28,12 @@ import {
 } from './moduleRegistry'
 
 const execFileAsync = promisify(execFile)
-const EXTRA_PATH_DIRS = ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']
-export const AURORA_ENV = { ...process.env, PATH: [...EXTRA_PATH_DIRS, process.env.PATH].join(':') }
+const EXTRA_PATH_DIRS =
+  process.platform === 'win32' ? [] : ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']
+export const AURORA_ENV = {
+  ...process.env,
+  PATH: [...EXTRA_PATH_DIRS, process.env.PATH].filter(Boolean).join(delimiter)
+}
 
 export type AuroraConfig = {
   name: string
