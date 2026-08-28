@@ -29,7 +29,9 @@ import {
 
 const execFileAsync = promisify(execFile)
 const EXTRA_PATH_DIRS =
-  process.platform === 'win32' ? [] : ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']
+  process.platform === 'win32'
+    ? [process.env.SystemRoot ? join(process.env.SystemRoot, 'System32') : '']
+    : ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']
 export const AURORA_ENV = {
   ...process.env,
   PATH: [...EXTRA_PATH_DIRS, process.env.PATH].filter(Boolean).join(delimiter)

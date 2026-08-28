@@ -16,6 +16,7 @@ import {
   stopNativeProject
 } from './nativeProject'
 import { allocateNativePorts } from './portAllocator'
+import { AURORA_ENV } from '../auroraEngine'
 
 const projectRoot = join(tmpdir(), 'aurora demo')
 const installedRuntimeRoot = join(tmpdir(), 'aurora-runtime')
@@ -190,7 +191,7 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
         run: async (_label: string, command: string, args: string[], env?: NodeJS.ProcessEnv) => {
           await execFileAsync(command, args, {
             cwd: root,
-            env: { ...process.env, ...env },
+            env: { ...AURORA_ENV, ...env },
             maxBuffer: 32 * 1024 * 1024
           })
         },
