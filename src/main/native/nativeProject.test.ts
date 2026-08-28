@@ -145,6 +145,10 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
           https: `http://127.0.0.1:${definition.ports.http}`
         },
         native: {
+          phpPrefixArgs:
+            process.platform === 'win32'
+              ? ['-c', join(root, '.aurora', 'native', 'config', 'php.ini')]
+              : [],
           php: runtimeCommand(runtime, 'php'),
           wp:
             process.platform === 'win32'
@@ -152,7 +156,13 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
               : join(runtime, 'bin', 'wp'),
           wpPrefixArgs:
             process.platform === 'win32'
-              ? ['-d', 'memory_limit=512M', join(runtime, 'tools', 'wp-cli.phar')]
+              ? [
+                  '-c',
+                  join(root, '.aurora', 'native', 'config', 'php.ini'),
+                  '-d',
+                  'memory_limit=512M',
+                  join(runtime, 'tools', 'wp-cli.phar')
+                ]
               : [],
           databasePort: definition.ports.database,
           start: () => startNativeProject(definition)

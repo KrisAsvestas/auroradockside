@@ -1,7 +1,7 @@
 {
   "id": "wordpress",
   "name": "WordPress",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "category": "application",
   "description": "WordPress CMS provisioning and WP-CLI tooling.",
   "main": "main/index.cjs",
@@ -12,15 +12,89 @@
   "settings": [],
   "creation": {
     "databases": ["mariadb", "mysql"],
-    "intro": { "title": "WordPress install", "description": "Core downloads automatically and the project starts for setup.", "icon": "globe" },
+    "intro": {
+      "title": "WordPress install",
+      "description": "Core downloads automatically and the project starts for setup.",
+      "icon": "globe"
+    },
     "setup": [
-      { "id": "title", "label": "Site title", "type": "text", "default": "", "placeholder": "My WordPress Site", "icon": "title", "span": 2 },
-      { "id": "admin_user", "label": "Admin username", "type": "text", "default": "admin", "required": true, "icon": "user" },
-      { "id": "admin_password", "label": "Admin password", "type": "text", "default": "", "required": true, "secret": true, "icon": "key" },
-      { "id": "admin_email", "label": "Admin email", "type": "text", "default": "", "required": true, "placeholder": "admin@example.com", "icon": "mail", "span": 2 },
-      { "id": "locale", "label": "Select language", "type": "select", "default": "en_US", "advanced": true, "icon": "globe", "options": ["en_US", "en_GB", "de_DE", "es_ES", "fr_FR", "it_IT", "pt_BR", "nl_NL", "ja"], "optionLabels": { "en_US": "English (United States)", "en_GB": "English (UK)", "de_DE": "German", "es_ES": "Spanish (Spain)", "fr_FR": "French (France)", "it_IT": "Italian", "pt_BR": "Portuguese (Brazil)", "nl_NL": "Dutch", "ja": "Japanese" } },
-      { "id": "multisite", "label": "Is this a WordPress Multisite?", "type": "select", "default": "none", "advanced": true, "icon": "settings", "options": ["none", "subdirectory", "subdomain"], "optionLabels": { "none": "No", "subdirectory": "Yes – Subdirectory", "subdomain": "Yes – Subdomain" } },
-      { "id": "wp_debug", "label": "Enable WP_DEBUG", "type": "boolean", "default": true, "advanced": true }
+      {
+        "id": "title",
+        "label": "Site title",
+        "type": "text",
+        "default": "",
+        "placeholder": "My WordPress Site",
+        "icon": "title",
+        "span": 2
+      },
+      {
+        "id": "admin_user",
+        "label": "Admin username",
+        "type": "text",
+        "default": "admin",
+        "required": true,
+        "icon": "user"
+      },
+      {
+        "id": "admin_password",
+        "label": "Admin password",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "secret": true,
+        "icon": "key"
+      },
+      {
+        "id": "admin_email",
+        "label": "Admin email",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "admin@example.com",
+        "icon": "mail",
+        "span": 2
+      },
+      {
+        "id": "locale",
+        "label": "Select language",
+        "type": "select",
+        "default": "en_US",
+        "advanced": true,
+        "icon": "globe",
+        "options": ["en_US", "en_GB", "de_DE", "es_ES", "fr_FR", "it_IT", "pt_BR", "nl_NL", "ja"],
+        "optionLabels": {
+          "en_US": "English (United States)",
+          "en_GB": "English (UK)",
+          "de_DE": "German",
+          "es_ES": "Spanish (Spain)",
+          "fr_FR": "French (France)",
+          "it_IT": "Italian",
+          "pt_BR": "Portuguese (Brazil)",
+          "nl_NL": "Dutch",
+          "ja": "Japanese"
+        }
+      },
+      {
+        "id": "multisite",
+        "label": "Is this a WordPress Multisite?",
+        "type": "select",
+        "default": "none",
+        "advanced": true,
+        "icon": "settings",
+        "options": ["none", "subdirectory", "subdomain"],
+        "optionLabels": {
+          "none": "No",
+          "subdirectory": "Yes – Subdirectory",
+          "subdomain": "Yes – Subdomain"
+        }
+      },
+      {
+        "id": "wp_debug",
+        "label": "Enable WP_DEBUG",
+        "type": "boolean",
+        "default": true,
+        "advanced": true
+      }
     ]
   },
   "project": {

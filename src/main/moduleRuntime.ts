@@ -118,6 +118,10 @@ export async function runModuleLifecycleHook(
       urls: urls ? Object.freeze(urls) : undefined,
       native: nativeDefinition
         ? Object.freeze({
+            phpPrefixArgs:
+              process.platform === 'win32'
+                ? ['-c', join(directory!, '.aurora', 'native', 'config', 'php.ini')]
+                : [],
             php:
               process.platform === 'win32'
                 ? join(runtimeRoot(), 'bin', 'php', 'php.exe')
@@ -128,7 +132,13 @@ export async function runModuleLifecycleHook(
                 : join(runtimeRoot(), 'bin', 'wp'),
             wpPrefixArgs:
               process.platform === 'win32'
-                ? ['-d', 'memory_limit=512M', join(runtimeRoot(), 'tools', 'wp-cli.phar')]
+                ? [
+                    '-c',
+                    join(directory!, '.aurora', 'native', 'config', 'php.ini'),
+                    '-d',
+                    'memory_limit=512M',
+                    join(runtimeRoot(), 'tools', 'wp-cli.phar')
+                  ]
                 : [],
             databaseHost: '127.0.0.1',
             databasePort: nativeDefinition.ports.database,

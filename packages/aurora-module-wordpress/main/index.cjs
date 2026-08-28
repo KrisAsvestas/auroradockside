@@ -38,6 +38,7 @@ exports.projectCreate = async function projectCreate(context) {
   const s = context.settings
   const title = String(s.title || '').trim() || context.projectName
   const native = context.environment.runtimeEngine === 'native'
+  const nativePhpPrefix = native ? context.native.phpPrefixArgs || [] : []
   const nativePrefix = native ? context.native.wpPrefixArgs || [] : []
   const base = native ? [...nativePrefix, `--path=${context.directory}`] : wpArgs(context, false)
   const networkBase = native ? base : wpArgs(context, true)
@@ -48,7 +49,7 @@ exports.projectCreate = async function projectCreate(context) {
     await context.native.start()
     const port = Number(context.native.databasePort)
     const bootstrap = `$db=new mysqli('127.0.0.1','root','',null,${port});if($db->connect_error)throw new Exception($db->connect_error);$db->query('CREATE DATABASE IF NOT EXISTS db');$db->query("CREATE USER IF NOT EXISTS 'db'@'127.0.0.1' IDENTIFIED BY 'db'");$db->query("GRANT ALL ON db.* TO 'db'@'127.0.0.1'");`
-    await context.run('database', context.native.php, ['-r', bootstrap])
+    await context.run('database', context.native.php, [...nativePhpPrefix, '-r', bootstrap])
   } else {
     await context.ensureRouter()
     await context.run('start', 'docker', [

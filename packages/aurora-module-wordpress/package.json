@@ -1,7 +1,11 @@
 {
   "name": "@aurora/module-wordpress",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "WordPress application module for Aurora Dockside",
-  "files": ["manifest.json", "main", "README.md"]
+  "files": [
+    "manifest.json",
+    "main",
+    "README.md"
+  ]
 }
