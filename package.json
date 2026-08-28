@@ -6,8 +6,9 @@
   "main": "./out/main/index.js",
   "homepage": "https://github.com/KrisAsvestas/auroradockside",
   "author": {
-    "name": "Kris Asvestas"
+    "name": "Aurora Dragon Studio"
   },
+  "copyright": "Copyright © 2026 Aurora Dragon Studio",
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
