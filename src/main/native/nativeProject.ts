@@ -258,10 +258,10 @@ export function nativeServiceSpecs(project: NativeProjectDefinition): NativeServ
       ...common('web'),
       command: runtimeExecutable(project, 'nginx'),
       args: [
-        '-c',
-        nativeConfigPath(join(directory, 'config', 'nginx.conf')),
         '-p',
-        `${nativeConfigPath(directory)}/`
+        `${nativeConfigPath(directory)}/`,
+        '-c',
+        'config/nginx.conf'
       ],
       ready: { port: project.ports.http }
     }

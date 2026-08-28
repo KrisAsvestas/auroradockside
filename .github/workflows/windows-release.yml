@@ -40,6 +40,8 @@ jobs:
       - name: Build and verify Aurora Native for Windows
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           ./runtime-build/windows-x64/stage-runtime.ps1
           node scripts/smoke-native-runtime.cjs dist/native-runtime-stage/win32-x64
           $runtime = (Resolve-Path 'dist/native-runtime-stage/win32-x64').Path

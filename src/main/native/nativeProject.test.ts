@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import {
   renderMariaDbConfig,
   nativeConfigPath,
+  nativeServiceSpecs,
   renderNativeAdminerBootstrap,
   renderNginxConfig,
   renderPhpFpmConfig,
@@ -62,6 +63,17 @@ describe('native project configuration', () => {
     expect(config).toContain('fastcgi_pass 127.0.0.1:41002')
     expect(config).toContain('location ~ \\.php$')
     expect(config).toContain(nativeConfigPath(resolve(projectRoot, 'public')))
+  })
+  it('launches nginx with a project-relative config path', () => {
+    const web = nativeServiceSpecs({ ...project, installedRuntimeRoot }).find((service) =>
+      service.id.endsWith(':web')
+    )
+    expect(web?.args).toEqual([
+      '-p',
+      `${nativeConfigPath(join(projectRoot, '.aurora', 'native'))}/`,
+      '-c',
+      'config/nginx.conf'
+    ])
   })
   it('isolates MariaDB data and networking', () => {
     const config = renderMariaDbConfig(project, installedRuntimeRoot)
