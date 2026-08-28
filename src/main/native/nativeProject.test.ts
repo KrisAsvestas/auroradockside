@@ -2,7 +2,7 @@ import { execFile, spawn } from 'child_process'
 import { createRequire } from 'module'
 import { mkdtemp, readFile, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
-import { join, resolve } from 'path'
+import { dirname, join, resolve } from 'path'
 import { promisify } from 'util'
 import { describe, expect, it } from 'vitest'
 import {
@@ -102,14 +102,15 @@ describe('native project configuration', () => {
 it.runIf(Boolean(process.env.AURORA_NATIVE_SMOKE_ROOT))(
   'serves PHP through the complete native stack',
   async () => {
-    const root = await mkdtemp(join(tmpdir(), 'aurora-native-project-'))
+    const runtime = process.env.AURORA_NATIVE_SMOKE_ROOT!
+    const root = await mkdtemp(join(dirname(runtime), 'aurora-native-project-'))
     await writeFile(join(root, 'index.php'), '<?php echo "aurora-native-ok";')
     const definition = {
       name: `smoke-${Date.now()}`,
       root,
       docroot: '',
       ports: await allocateNativePorts(),
-      installedRuntimeRoot: process.env.AURORA_NATIVE_SMOKE_ROOT
+      installedRuntimeRoot: runtime
     }
     try {
       await startNativeProject(definition)
@@ -126,7 +127,7 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
   'provisions WordPress with the bundled native runtime',
   async () => {
     const runtime = process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT!
-    const root = await mkdtemp(join(tmpdir(), 'aurora-native-wordpress-'))
+    const root = await mkdtemp(join(dirname(runtime), 'aurora-native-wordpress-'))
     const definition = {
       name: `wordpress-${Date.now()}`,
       root,
