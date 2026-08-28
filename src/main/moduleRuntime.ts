@@ -38,6 +38,15 @@ function sendExit(sender: WebContents, operationId: string, exitCode: number): v
     sender.send('terminal:exit', { operationId, exitCode, cancelled: false })
 }
 
+function sendError(sender: WebContents, operationId: string, error: unknown): void {
+  if (sender.isDestroyed()) return
+  sender.send('terminal:data', {
+    operationId,
+    stream: 'stderr',
+    chunk: `\n${error instanceof Error ? error.message : String(error)}\n`
+  })
+}
+
 function loadModule(moduleId: string, main: string): LoadedModule {
   const root = resolve(moduleDirectory(), moduleId)
   const entry = resolve(root, main)
@@ -186,6 +195,7 @@ export async function runModuleProjectCreate(
     })
     sendExit(sender, operationId, 0)
   } catch (error) {
+    sendError(sender, operationId, error)
     sendExit(sender, operationId, 1)
     throw error
   }
@@ -216,6 +226,7 @@ export async function runModuleProjectTool(
     if (!handled) throw new Error(`Module '${moduleId}' does not implement projectTool`)
     sendExit(sender, operationId, 0)
   } catch (error) {
+    sendError(sender, operationId, error)
     sendExit(sender, operationId, 1)
     throw error
   }

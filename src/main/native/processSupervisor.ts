@@ -144,7 +144,13 @@ export class NativeProcessSupervisor {
       await terminate(child.pid)
       this.children.delete(spec.id)
       await rm(spec.pidPath, { force: true })
-      throw error
+      const reason = error instanceof Error ? error.message : String(error)
+      const details = log.trim()
+      throw new Error(
+        details
+          ? `${spec.id} failed to start: ${reason}\n\n${details}`
+          : `${spec.id} failed to start: ${reason} See ${spec.logPath}`
+      )
     }
   }
 

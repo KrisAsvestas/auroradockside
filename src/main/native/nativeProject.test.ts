@@ -7,6 +7,7 @@ import { promisify } from 'util'
 import { describe, expect, it } from 'vitest'
 import {
   renderMariaDbConfig,
+  nativeConfigPath,
   renderNativeAdminerBootstrap,
   renderNginxConfig,
   renderPhpFpmConfig,
@@ -25,6 +26,12 @@ const project = {
 }
 const execFileAsync = promisify(execFile)
 
+function runtimeCommand(runtime: string, name: string): string {
+  if (process.platform !== 'win32') return join(runtime, 'bin', name)
+  if (name === 'php') return join(runtime, 'bin', 'php', 'php.exe')
+  return join(runtime, 'bin', 'mariadb', 'bin', `${name}.exe`)
+}
+
 function runWithInput(command: string, args: string[], cwd: string, input: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, env: process.env, stdio: ['pipe', 'pipe', 'pipe'] })
@@ -42,6 +49,11 @@ function runWithInput(command: string, args: string[], cwd: string, input: strin
 }
 
 describe('native project configuration', () => {
+  it('writes portable forward-slash paths into Windows service configuration', () => {
+    expect(nativeConfigPath('C:\\Users\\Aurora Dragon\\project', 'win32')).toBe(
+      'C:/Users/Aurora Dragon/project'
+    )
+  })
   it('isolates PHP-FPM on its allocated loopback port', () =>
     expect(renderPhpFpmConfig(project)).toContain('listen = 127.0.0.1:41002'))
   it('routes nginx PHP requests to the project PHP-FPM service', () => {
@@ -131,8 +143,15 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
           https: `http://127.0.0.1:${definition.ports.http}`
         },
         native: {
-          php: join(runtime, 'bin', 'php'),
-          wp: join(runtime, 'bin', 'wp'),
+          php: runtimeCommand(runtime, 'php'),
+          wp:
+            process.platform === 'win32'
+              ? runtimeCommand(runtime, 'php')
+              : join(runtime, 'bin', 'wp'),
+          wpPrefixArgs:
+            process.platform === 'win32'
+              ? ['-d', 'memory_limit=512M', join(runtime, 'tools', 'wp-cli.phar')]
+              : [],
           databasePort: definition.ports.database,
           start: () => startNativeProject(definition)
         },
@@ -161,12 +180,12 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
         'db'
       ]
       const dump = await execFileAsync(
-        join(runtime, 'bin', 'mariadb-dump'),
+        runtimeCommand(runtime, 'mariadb-dump'),
         [...databaseArgs.slice(0, -1), '--single-transaction', 'db'],
         { cwd: root, env: process.env, maxBuffer: 32 * 1024 * 1024 }
       )
       await execFileAsync(
-        join(runtime, 'bin', 'mariadb'),
+        runtimeCommand(runtime, 'mariadb'),
         [
           ...databaseArgs,
           '-e',
@@ -174,9 +193,9 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
         ],
         { cwd: root, env: process.env }
       )
-      await runWithInput(join(runtime, 'bin', 'mariadb'), databaseArgs, root, dump.stdout)
+      await runWithInput(runtimeCommand(runtime, 'mariadb'), databaseArgs, root, dump.stdout)
       const restored = await execFileAsync(
-        join(runtime, 'bin', 'mariadb'),
+        runtimeCommand(runtime, 'mariadb'),
         [
           ...databaseArgs,
           '--batch',

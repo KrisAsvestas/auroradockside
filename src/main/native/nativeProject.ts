@@ -34,7 +34,11 @@ function nativeDirectory(root: string): string {
 }
 
 function quoteNginx(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  return nativeConfigPath(value).replace(/"/g, '\\"')
+}
+
+export function nativeConfigPath(value: string, platform = process.platform): string {
+  return platform === 'win32' ? value.replace(/\\/g, '/') : value
 }
 
 export function renderPhpFpmConfig(project: NativeProjectDefinition): string {
@@ -152,15 +156,15 @@ export function renderMariaDbConfig(
     process.platform === 'win32'
       ? join(installedRuntimeRoot, 'bin', 'mariadb')
       : join(installedRuntimeRoot, 'root', 'usr')
+  const configPath = (value: string): string => nativeConfigPath(value)
   return `[mariadbd]
-basedir=${basedir}
-datadir=${join(directory, 'data', 'mariadb')}
-tmpdir=${join(directory, 'tmp')}
+basedir="${configPath(basedir)}"
+datadir="${configPath(join(directory, 'data', 'mariadb'))}"
+tmpdir="${configPath(join(directory, 'tmp'))}"
 bind-address=127.0.0.1
 port=${project.ports.database}
-socket=${join(directory, 'mariadb.sock')}
-pid-file=${join(directory, 'pids', 'mariadb.pid')}
-log-error=${join(directory, 'logs', 'mariadb.log')}
+${process.platform === 'win32' ? '' : `socket=${join(directory, 'mariadb.sock')}\n`}pid-file="${configPath(join(directory, 'pids', 'mariadb.pid'))}"
+log-error="${configPath(join(directory, 'logs', 'mariadb.log'))}"
 skip-name-resolve
 `
 }
@@ -192,7 +196,7 @@ export async function provisionNativeProject(project: NativeProjectDefinition): 
       ? [
           writeFile(
             join(directory, 'config', 'php.ini'),
-            `extension_dir="${join(installedRoot(project), 'bin', 'php', 'ext')}"\nextension=mysqli\nextension=pdo_mysql\nextension=mbstring\nextension=curl\nextension=openssl\nextension=zip\ndisplay_errors=On\nlog_errors=On\nerror_log="${join(directory, 'logs', 'php.log')}"\n`
+            `extension_dir="${nativeConfigPath(join(installedRoot(project), 'bin', 'php', 'ext'))}"\nextension=mysqli\nextension=pdo_mysql\nextension=mbstring\nextension=curl\nextension=openssl\nextension=zip\ndisplay_errors=On\nlog_errors=On\nerror_log="${nativeConfigPath(join(directory, 'logs', 'php.log'))}"\n`
           )
         ]
       : [])
@@ -229,7 +233,7 @@ export function nativeServiceSpecs(project: NativeProjectDefinition): NativeServ
       ...common('database'),
       command: runtimeExecutable(project, 'mariadbd'),
       args: [
-        `--defaults-file=${join(directory, 'config', 'mariadb.cnf')}`,
+        `--defaults-file=${nativeConfigPath(join(directory, 'config', 'mariadb.cnf'))}`,
         ...(process.platform === 'win32' ? ['--console'] : [])
       ],
       ready: { port: project.ports.database, timeoutMs: 30000 }
@@ -253,7 +257,12 @@ export function nativeServiceSpecs(project: NativeProjectDefinition): NativeServ
     {
       ...common('web'),
       command: runtimeExecutable(project, 'nginx'),
-      args: ['-c', join(directory, 'config', 'nginx.conf'), '-p', `${directory}/`],
+      args: [
+        '-c',
+        nativeConfigPath(join(directory, 'config', 'nginx.conf')),
+        '-p',
+        `${nativeConfigPath(directory)}/`
+      ],
       ready: { port: project.ports.http }
     }
   ]

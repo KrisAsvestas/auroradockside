@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Existing GitHub release tag to receive the macOS files
         required: true
-        default: v2.0.0-alpha.30
+        default: v2.0.0-alpha.31
   push:
     tags:
       - 'v*'
