@@ -38,7 +38,7 @@ jobs:
           test -f dist/native-runtime/aurora-native-0.1.0-linux-x64.tar.gz
           test -f dist/linux-unpacked/resources/native-runtime/aurora-native-0.1.0-linux-x64.tar.gz
           cmp dist/native-runtime/aurora-native-0.1.0-linux-x64.tar.gz dist/linux-unpacked/resources/native-runtime/aurora-native-0.1.0-linux-x64.tar.gz
-          test -f dist/linux-unpacked/resources/module-catalog/wordpress-1.2.0.pac
+          test -f dist/linux-unpacked/resources/module-catalog/wordpress-1.2.1.pac
           test -f dist/linux-unpacked/resources/module-catalog/drupal-1.0.0.pac
 
       - name: Create checksums

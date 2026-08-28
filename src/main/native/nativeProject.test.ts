@@ -1,6 +1,6 @@
 import { execFile, spawn } from 'child_process'
 import { createRequire } from 'module'
-import { mkdtemp, readFile, writeFile } from 'fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { dirname, join, resolve } from 'path'
 import { promisify } from 'util'
@@ -128,6 +128,8 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
   async () => {
     const runtime = process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT!
     const root = await mkdtemp(join(dirname(runtime), 'aurora-native-wordpress-'))
+    const commandTemp = join(dirname(runtime), 'wp-cli-temp')
+    await mkdir(commandTemp, { recursive: true })
     const definition = {
       name: `wordpress-${Date.now()}`,
       root,
@@ -158,6 +160,11 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
           https: `http://127.0.0.1:${definition.ports.http}`
         },
         native: {
+          commandEnvironment: {
+            TEMP: commandTemp,
+            TMP: commandTemp,
+            WP_CLI_CACHE_DIR: join(commandTemp, 'cache')
+          },
           phpPrefixArgs:
             process.platform === 'win32'
               ? ['-c', join(root, '.aurora', 'native', 'config', 'php.ini')]
@@ -180,10 +187,10 @@ it.runIf(Boolean(process.env.AURORA_NATIVE_WORDPRESS_SMOKE_ROOT))(
           databasePort: definition.ports.database,
           start: () => startNativeProject(definition)
         },
-        run: async (_label: string, command: string, args: string[]) => {
+        run: async (_label: string, command: string, args: string[], env?: NodeJS.ProcessEnv) => {
           await execFileAsync(command, args, {
             cwd: root,
-            env: process.env,
+            env: { ...process.env, ...env },
             maxBuffer: 32 * 1024 * 1024
           })
         },

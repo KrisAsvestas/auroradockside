@@ -44,12 +44,23 @@ exports.projectCreate = async function projectCreate(context) {
   const networkBase = native ? base : wpArgs(context, true)
   const command = native ? context.native.wp : 'docker'
   const siteUrl = native ? context.urls.http : context.urls.https
-  const wp = (label, args) => context.run(label, command, [...networkBase, ...args])
+  const wp = (label, args) =>
+    context.run(
+      label,
+      command,
+      [...networkBase, ...args],
+      native ? context.native.commandEnvironment : undefined
+    )
   if (native) {
     await context.native.start()
     const port = Number(context.native.databasePort)
     const bootstrap = `$db=new mysqli('127.0.0.1','root','',null,${port});if($db->connect_error)throw new Exception($db->connect_error);$db->query('CREATE DATABASE IF NOT EXISTS db');$db->query("CREATE USER IF NOT EXISTS 'db'@'127.0.0.1' IDENTIFIED BY 'db'");$db->query("GRANT ALL ON db.* TO 'db'@'127.0.0.1'");`
-    await context.run('database', context.native.php, [...nativePhpPrefix, '-r', bootstrap])
+    await context.run(
+      'database',
+      context.native.php,
+      [...nativePhpPrefix, '-r', bootstrap],
+      context.native.commandEnvironment
+    )
   } else {
     await context.ensureRouter()
     await context.run('start', 'docker', [
@@ -62,24 +73,28 @@ exports.projectCreate = async function projectCreate(context) {
       '--remove-orphans'
     ])
   }
-  await context.run('download', command, [
-    ...base,
-    'core',
+  await context.run(
     'download',
-    `--locale=${s.locale || 'en_US'}`,
-    '--force'
-  ])
-  await context.run('config', command, [
-    ...networkBase,
+    command,
+    [...base, 'core', 'download', `--locale=${s.locale || 'en_US'}`, '--force'],
+    native ? context.native.commandEnvironment : undefined
+  )
+  await context.run(
     'config',
-    'create',
-    '--dbname=db',
-    '--dbuser=db',
-    '--dbpass=db',
-    `--dbhost=${native ? `127.0.0.1:${context.native.databasePort}` : 'db:3306'}`,
-    '--skip-check',
-    '--force'
-  ])
+    command,
+    [
+      ...networkBase,
+      'config',
+      'create',
+      '--dbname=db',
+      '--dbuser=db',
+      '--dbpass=db',
+      `--dbhost=${native ? `127.0.0.1:${context.native.databasePort}` : 'db:3306'}`,
+      '--skip-check',
+      '--force'
+    ],
+    native ? context.native.commandEnvironment : undefined
+  )
   await wp('install', [
     'core',
     'install',

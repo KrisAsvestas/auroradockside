@@ -76,10 +76,10 @@ jobs:
 
       - name: Verify embedded PAC catalog
         run: |
-          test -f dist/module-catalog/wordpress-1.2.0.pac
-          test -f "dist/mac-universal/Aurora Dockside.app/Contents/Resources/module-catalog/wordpress-1.2.0.pac"
-          cmp dist/module-catalog/wordpress-1.2.0.pac "dist/mac-universal/Aurora Dockside.app/Contents/Resources/module-catalog/wordpress-1.2.0.pac"
-          unzip -t "dist/mac-universal/Aurora Dockside.app/Contents/Resources/module-catalog/wordpress-1.2.0.pac"
+          test -f dist/module-catalog/wordpress-1.2.1.pac
+          test -f "dist/mac-universal/Aurora Dockside.app/Contents/Resources/module-catalog/wordpress-1.2.1.pac"
+          cmp dist/module-catalog/wordpress-1.2.1.pac "dist/mac-universal/Aurora Dockside.app/Contents/Resources/module-catalog/wordpress-1.2.1.pac"
+          unzip -t "dist/mac-universal/Aurora Dockside.app/Contents/Resources/module-catalog/wordpress-1.2.1.pac"
 
       - name: Create checksums
         run: |

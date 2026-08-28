@@ -1,5 +1,6 @@
 import { execFile } from 'child_process'
 import { createRequire } from 'module'
+import { mkdir } from 'fs/promises'
 import { promisify } from 'util'
 import { dirname, join, resolve, sep } from 'path'
 import type { WebContents } from 'electron'
@@ -78,7 +79,18 @@ export async function runModuleLifecycleHook(
       : options.projectName
         ? projectUrls(options.projectName)
         : undefined
-  const run = async (label: string, command: string, args: string[]): Promise<void> => {
+  const nativeTemp =
+    nativeDefinition && process.platform === 'win32' ? join(runtimeRoot(), 'tmp') : undefined
+  if (nativeTemp) await mkdir(nativeTemp, { recursive: true })
+  const nativeCommandEnv = nativeTemp
+    ? { TEMP: nativeTemp, TMP: nativeTemp, WP_CLI_CACHE_DIR: join(nativeTemp, 'wp-cli-cache') }
+    : undefined
+  const run = async (
+    label: string,
+    command: string,
+    args: string[],
+    env?: NodeJS.ProcessEnv
+  ): Promise<void> => {
     if (options.sender && options.operationId) {
       if (!options.sender.isDestroyed())
         options.sender.send('terminal:data', {
@@ -88,12 +100,13 @@ export async function runModuleLifecycleHook(
         })
       return runCommandStreamed(options.operationId, command, args, options.sender, {
         cwd: directory ?? resolve(moduleDirectory(), moduleId),
-        emitExit: false
+        emitExit: false,
+        env
       })
     }
     await execFileAsync(command, args, {
       cwd: directory ?? resolve(moduleDirectory(), moduleId),
-      env: AURORA_ENV
+      env: { ...AURORA_ENV, ...env }
     })
   }
   await handler(
@@ -122,6 +135,7 @@ export async function runModuleLifecycleHook(
               process.platform === 'win32'
                 ? ['-c', join(directory!, '.aurora', 'native', 'config', 'php.ini')]
                 : [],
+            commandEnvironment: nativeCommandEnv,
             php:
               process.platform === 'win32'
                 ? join(runtimeRoot(), 'bin', 'php', 'php.exe')
