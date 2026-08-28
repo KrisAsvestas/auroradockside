@@ -131,7 +131,7 @@ export async function installNativeRuntimeArchive(source: string): Promise<Auror
   await mkdir(runtimes, { recursive: true })
   const staging = await mkdtemp(join(runtimes, '.install-'))
   const target = runtimeRoot()
-  const backup = `${target}.previous`
+  const backup = `${target}.previous-${Date.now()}`
   try {
     const { stdout } = await execFileAsync('tar', ['-tzf', source], { maxBuffer: 16 * 1024 * 1024 })
     validateArchiveEntries(stdout)
@@ -148,15 +148,20 @@ export async function installNativeRuntimeArchive(source: string): Promise<Auror
     )
     await rejectLinks(staging)
     await verifyRuntimeAt(staging)
-    await rm(backup, { recursive: true, force: true })
     try {
       await rename(target, backup)
-    } catch {
-      /* first installation */
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
     try {
       await rename(staging, target)
-      await rm(backup, { recursive: true, force: true })
+      try {
+        await rm(backup, { recursive: true, force: true })
+      } catch (error) {
+        // Windows keeps running executables locked. The uniquely named rollback folder can be
+        // removed after those old processes exit and must never block the new runtime install.
+        console.warn('Previous Aurora Native runtime is still in use; cleanup was deferred:', error)
+      }
     } catch (error) {
       try {
         await rename(backup, target)
