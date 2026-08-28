@@ -29,7 +29,7 @@ describe('Aurora Native runtime manifest', () => {
       })
     ).toThrow(/checksum/))
   it('rejects archive entries that escape the installation directory', () => {
-    expect(() => validateArchiveEntries('./runtime.json\n./bin/php\n')).not.toThrow()
+    expect(() => validateArchiveEntries('./\n./runtime.json\n./bin/php\n')).not.toThrow()
     expect(() => validateArchiveEntries('./runtime.json\n../outside\n')).toThrow(
       /Unsafe runtime archive entry/
     )

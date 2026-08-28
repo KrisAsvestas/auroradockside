@@ -117,8 +117,9 @@ export function validateArchiveEntries(output: string): void {
   if (!entries.length || entries.length > 50000)
     throw new Error('Runtime archive has an invalid file count.')
   for (const entry of entries) {
+    if (entry === '.' || entry === './') continue
     const normalized = entry.replace(/^\.\//, '')
-    if (!normalized || isAbsolute(normalized) || normalized.split('/').includes('..'))
+    if (!normalized || isAbsolute(normalized) || normalized.split(/[\\/]/).includes('..'))
       throw new Error(`Unsafe runtime archive entry: ${entry}`)
   }
 }
