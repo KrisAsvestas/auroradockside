@@ -33,6 +33,19 @@ $mariaParent = Join-Path $stagePath "bin/mariadb-unpack"
 Expand-Archive $phpZip $phpRoot -Force
 Expand-Archive $nginxZip $nginxParent -Force
 Expand-Archive $mariaZip $mariaParent -Force
+
+@'
+extension_dir = "ext"
+extension = mysqli
+extension = pdo_mysql
+extension = mbstring
+extension = curl
+extension = openssl
+extension = zip
+display_errors = On
+log_errors = On
+'@ | Set-Content (Join-Path $phpRoot "php.ini")
+
 Move-Item (Join-Path $nginxParent "nginx-$NginxVersion") (Join-Path $stagePath "bin/nginx")
 Move-Item (Join-Path $mariaParent "mariadb-$MariaDbVersion-winx64") (Join-Path $stagePath "bin/mariadb")
 Remove-Item $nginxParent, $mariaParent -Recurse -Force
