@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import {
   ArrowLeft,
@@ -56,6 +56,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
   const createProject = useCreateProject()
   const selectProject = useAppStore((s) => s.selectProject)
   const setupRef = useRef<TypeSetupHandle>(null)
+  const runtimeChoiceMade = useRef(false)
   const { data: moduleRegistry = [] } = useModuleRegistry()
   const { data: runtimeStatus } = useRuntimeStatus()
   const applicationModules = moduleRegistry.filter((module) => module.category === 'application')
@@ -68,8 +69,27 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
   const canContinue = directory !== null && nameValid && selectedModule !== undefined
   const canSubmit = canContinue && setupValid && !isSubmitting
 
+  useEffect(() => {
+    if (!runtimeStatus || runtimeChoiceMade.current) return
+    runtimeChoiceMade.current = true
+    if (!runtimeStatus.native.available) return
+    setRuntimeEngine('native')
+    const nativePhp = runtimeStatus.native.components.find(
+      (component) => component.id === 'php'
+    )?.version
+    if (nativePhp) setPhpVersion(nativePhp.split('.').slice(0, 2).join('.'))
+    setWebServer('nginx')
+    setDatabase('mariadb')
+    setDatabaseVersion('11.8')
+    setAdminer(true)
+    setRedis(false)
+    setMailpit(false)
+    setXdebug(false)
+  }, [runtimeStatus])
+
   function selectRuntimeEngine(engine: 'container' | 'native'): void {
     if (engine === 'native' && !runtimeStatus?.native.available) return
+    runtimeChoiceMade.current = true
     setRuntimeEngine(engine)
     if (engine === 'native') {
       const nativePhp = runtimeStatus?.native.components.find(
@@ -376,8 +396,11 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }): React.
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
-                        <label className={labelClass}>PHP</label>
+                        <label htmlFor="project-php-version" className={labelClass}>
+                          PHP
+                        </label>
                         <select
+                          id="project-php-version"
                           className={fieldClass}
                           value={phpVersion}
                           onChange={(e) => setPhpVersion(e.target.value)}

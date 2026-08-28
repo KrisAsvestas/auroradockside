@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Existing GitHub release tag to receive the Windows installer
         required: true
-        default: v2.0.0-alpha.29
+        default: v2.0.0-alpha.30
   push:
     tags:
       - 'v*'
