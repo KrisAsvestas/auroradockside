@@ -1,7 +1,7 @@
 {
   "id": "wordpress",
   "name": "WordPress",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "category": "application",
   "description": "WordPress CMS provisioning and WP-CLI tooling.",
   "main": "main/index.cjs",

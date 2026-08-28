@@ -73,12 +73,24 @@ exports.projectCreate = async function projectCreate(context) {
       '--remove-orphans'
     ])
   }
-  await context.run(
-    'download',
-    command,
-    [...base, 'core', 'download', `--locale=${s.locale || 'en_US'}`, '--force'],
-    native ? context.native.commandEnvironment : undefined
-  )
+  if (native && nativePhpPrefix.length) {
+    const target = Buffer.from(context.directory, 'utf8').toString('base64')
+    const locale = encodeURIComponent(String(s.locale || 'en_US'))
+    const download = `$target=base64_decode('${target}');$work=$target.DIRECTORY_SEPARATOR.'.aurora'.DIRECTORY_SEPARATOR.'wordpress-download';$archive=$work.'.zip';@mkdir($work,0777,true);$api=json_decode(file_get_contents('https://api.wordpress.org/core/version-check/1.7/?locale=${locale}'),true);$offer=$api['offers'][0]??null;$url=$offer['packages']['full']??$offer['download']??null;if(!$url||!copy($url,$archive))throw new Exception('Unable to download WordPress.');$zip=new ZipArchive();if($zip->open($archive)!==true)throw new Exception('Unable to open WordPress archive.');if(!$zip->extractTo($work))throw new Exception('Unable to extract WordPress archive.');$zip->close();$source=$work.DIRECTORY_SEPARATOR.'wordpress';foreach(scandir($source) as $entry){if($entry==='.'||$entry==='..')continue;if(!rename($source.DIRECTORY_SEPARATOR.$entry,$target.DIRECTORY_SEPARATOR.$entry))throw new Exception('Unable to install WordPress file: '.$entry);}@rmdir($source);@rmdir($work);@unlink($archive);`
+    await context.run(
+      'download',
+      context.native.php,
+      [...nativePhpPrefix, '-r', download],
+      context.native.commandEnvironment
+    )
+  } else {
+    await context.run(
+      'download',
+      command,
+      [...base, 'core', 'download', `--locale=${s.locale || 'en_US'}`, '--force'],
+      native ? context.native.commandEnvironment : undefined
+    )
+  }
   await context.run(
     'config',
     command,

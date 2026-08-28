@@ -1,6 +1,6 @@
 {
   "name": "@aurora/module-wordpress",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
   "description": "WordPress application module for Aurora Dockside",
   "files": [
