@@ -75,7 +75,7 @@ jobs:
         with:
           name: aurora-dockside-windows-x64
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
           path: |
             dist/*-setup.exe
             dist/latest.yml
