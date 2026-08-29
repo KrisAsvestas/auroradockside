@@ -54,7 +54,7 @@ jobs:
         with:
           name: aurora-dockside-linux-x64
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
           path: |
             dist/*.AppImage
             dist/native-runtime/*.tar.gz
