@@ -92,7 +92,7 @@ jobs:
         with:
           name: aurora-dockside-macos-universal
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
           path: |
             dist/*.dmg
             dist/*-mac.zip
